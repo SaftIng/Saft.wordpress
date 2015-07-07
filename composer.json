@@ -1,0 +1,28 @@
+{
+    "name": "saft/saft-wordpress",
+    "description": "This plugin contains the Saft library (+ vendors) and provides a Wordpress integration. The Saft library is the aim to build a collection of components which helps anyone who wants to create applications by using Semantic Web technology.",
+    "version": "0.1.0-alpha3",
+    "license": "GPL-3.0",
+    "authors": [
+        {
+            "name": "Konrad Abicht",
+            "homepage": "http://inspirito.de",
+            "email": "hi@inspirito.de",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "saft/saft-skeleton": "*"
+    },
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Saft\\": [
+                "vendor/saft/saft/src/Saft/"
+            ],
+            "Saft\\Skeleton\\": [
+                "vendor/saft/saft-skeleton/src/Saft/Skeleton/"
+            ]
+        }
+    }
+}

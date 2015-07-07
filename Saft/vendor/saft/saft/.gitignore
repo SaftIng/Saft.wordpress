@@ -1,0 +1,11 @@
+composer.lock
+composer.phar
+.idea
+/test-config.yml
+/vendor
+# Eclipse specific
+.project
+.settings
+.buildpath
+/gen
+/tmp
