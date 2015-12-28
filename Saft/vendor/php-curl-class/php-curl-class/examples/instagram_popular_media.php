@@ -1,5 +1,5 @@
 <?php
-require '../src/Curl/Curl.php';
+require __DIR__ . '/vendor/autoload.php';
 
 use \Curl\Curl;
 
@@ -28,7 +28,7 @@ if (isset($_GET['code'])) {
     ));
 
     if ($curl->error) {
-        echo $curl->response->error_type . ': ' . $curl->response->error_message . '<br />';
+        echo $curl->response->error_type . ': ' . $curl->response->errorMessage . '<br />';
         echo '<a href="?">Try again?</a>';
         exit;
     }

@@ -1,0 +1,12 @@
+SELECT DISTINCT ?resourceUri  ?resourceUri0 ?resourceUri1
+FROM <http://3ba.se/conferences/>
+WHERE {
+    ?resourceUri a ?type
+    OPTIONAL { ?resourceUri <http://www.w3.org/2000/01/rdf-schema#label> ?resourceUri0. }
+    OPTIONAL { ?resourceUri <http://purl.org/dc/elements/1.1/title> ?resourceUri1. }
+    FILTER (isURI(?resourceUri))
+    FILTER (sameTerm(?type, <http://swrc.ontoware.org/ontology#Person>))
+}
+ORDER BY ?resourceUri
+LIMIT 10
+OFFSET 0

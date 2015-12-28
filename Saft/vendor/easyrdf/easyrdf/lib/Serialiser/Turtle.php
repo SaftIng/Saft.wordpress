@@ -83,6 +83,16 @@ class Turtle extends Serialiser
     {
         if (preg_match('/[\t\n\r]/', $value)) {
             $escaped = str_replace(array('\\', '"""'), array('\\\\', '\\"""'), $value);
+
+            // Check if the last character is a trailing double quote, if so, escape it.
+            $pos = strrpos($escaped, '"');
+
+            if ($pos !== false && $pos + 1 == strlen($escaped)) {
+                $escaped = substr($escaped, 0, -1);
+
+                $escaped .= '\"';
+            }
+
             return '"""'.$escaped.'"""';
         } else {
             $escaped = str_replace(array('\\', '"'), array('\\\\', '\\"'), $value);
@@ -342,20 +352,20 @@ class Turtle extends Serialiser
         return $turtle;
     }
 
+
     /**
      * Serialise an EasyRdf\Graph to Turtle.
      *
-     * @param Graph  $graph   An EasyRdf\Graph object.
-     * @param string $format  The name of the format to convert to.
+     * @param Graph  $graph  An EasyRdf\Graph object.
+     * @param string $format The name of the format to convert to.
      * @param array  $options
      *
-     * @throws Exception
-     *
      * @return string The RDF in the new desired format.
+     * @throws Exception
      */
-    public function serialise($graph, $format, array $options = array())
+    public function serialise(Graph $graph, $format, array $options = array())
     {
-        parent::checkSerialiseParams($graph, $format);
+        parent::checkSerialiseParams($format);
 
         if ($format != 'turtle' and $format != 'n3') {
             throw new Exception(

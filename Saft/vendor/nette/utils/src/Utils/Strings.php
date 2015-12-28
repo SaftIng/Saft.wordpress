@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Utils;
@@ -15,6 +15,9 @@ use Nette;
  */
 class Strings
 {
+
+	const TRIM_CHARACTERS = " \t\n\r\0\x0B\xC2\xA0";
+
 
 	/**
 	 * Static class - cannot be instantiated.
@@ -109,9 +112,6 @@ class Strings
 	public static function substring($s, $start, $length = NULL)
 	{
 		if (function_exists('mb_substr')) {
-			if ($length === NULL && PHP_VERSION_ID < 50408) {
-				$length = self::length($s);
-			}
 			return mb_substr($s, $start, $length, 'UTF-8'); // MB is much faster
 		} elseif ($length === NULL) {
 			$length = self::length($s);
@@ -162,13 +162,18 @@ class Strings
 	 */
 	public static function toAscii($s)
 	{
+		static $transliterator = NULL;
+		if ($transliterator === NULL && class_exists('Transliterator', FALSE)) {
+			$transliterator = \Transliterator::create('Any-Latin; Latin-ASCII');
+		}
+
 		$s = preg_replace('#[^\x09\x0A\x0D\x20-\x7E\xA0-\x{2FF}\x{370}-\x{10FFFF}]#u', '', $s);
 		$s = strtr($s, '`\'"^~?', "\x01\x02\x03\x04\x05\x06");
 		$s = str_replace(
 			["\xE2\x80\x9E", "\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x9A", "\xE2\x80\x98", "\xE2\x80\x99", "\xC2\xB0"],
 			["\x03", "\x03", "\x03", "\x02", "\x02", "\x02", "\x04"], $s
 		);
-		if (class_exists('Transliterator') && $transliterator = \Transliterator::create('Any-Latin; Latin-ASCII')) {
+		if ($transliterator !== NULL) {
 			$s = $transliterator->transliterate($s);
 		}
 		if (ICONV_IMPL === 'glibc') {
@@ -205,7 +210,7 @@ class Strings
 		if ($lower) {
 			$s = strtolower($s);
 		}
-		$s = preg_replace('#[^a-z0-9' . preg_quote($charlist, '#') . ']+#i', '-', $s);
+		$s = preg_replace('#[^a-z0-9' . ($charlist !== NULL ? preg_quote($charlist, '#') : '') . ']+#i', '-', $s);
 		$s = trim($s, '-');
 		return $s;
 	}
@@ -332,10 +337,10 @@ class Strings
 	 * @param  string|array
 	 * @return string
 	 */
-	public static function findPrefix($strings)
+	public static function findPrefix(...$strings)
 	{
-		if (!is_array($strings)) {
-			$strings = func_get_args();
+		if (is_array($strings[0])) {
+			$strings = $strings[0];
 		}
 		$first = array_shift($strings);
 		for ($i = 0; $i < strlen($first); $i++) {
@@ -370,7 +375,7 @@ class Strings
 	 * @param  string
 	 * @return string
 	 */
-	public static function trim($s, $charlist = " \t\n\r\0\x0B\xC2\xA0")
+	public static function trim($s, $charlist = self::TRIM_CHARACTERS)
 	{
 		$charlist = preg_quote($charlist, '#');
 		return self::replace($s, '#^['.$charlist.']+|['.$charlist.']+\z#u', '');
@@ -388,7 +393,7 @@ class Strings
 	{
 		$length = max(0, $length - self::length($s));
 		$padLen = self::length($pad);
-		return str_repeat($pad, $length / $padLen) . self::substring($pad, 0, $length % $padLen) . $s;
+		return str_repeat($pad, (int) ($length / $padLen)) . self::substring($pad, 0, $length % $padLen) . $s;
 	}
 
 
@@ -403,7 +408,7 @@ class Strings
 	{
 		$length = max(0, $length - self::length($s));
 		$padLen = self::length($pad);
-		return $s . str_repeat($pad, $length / $padLen) . self::substring($pad, 0, $length % $padLen);
+		return $s . str_repeat($pad, (int) ($length / $padLen)) . self::substring($pad, 0, $length % $padLen);
 	}
 
 
@@ -572,6 +577,7 @@ class Strings
 	{
 		if (is_object($replacement) || is_array($replacement)) {
 			if ($replacement instanceof Nette\Callback) {
+				trigger_error('Nette\Callback is deprecated, use PHP callback.', E_USER_DEPRECATED);
 				$replacement = $replacement->getNative();
 			}
 			if (!is_callable($replacement, FALSE, $textual)) {
@@ -597,7 +603,8 @@ class Strings
 			PREG_BACKTRACK_LIMIT_ERROR => 'Backtrack limit was exhausted',
 			PREG_RECURSION_LIMIT_ERROR => 'Recursion limit was exhausted',
 			PREG_BAD_UTF8_ERROR => 'Malformed UTF-8 data',
-			5 => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point', // PREG_BAD_UTF8_OFFSET_ERROR
+			PREG_BAD_UTF8_OFFSET_ERROR => 'Offset didn\'t correspond to the begin of a valid UTF-8 code point',
+			6 => 'Failed due to limited JIT stack space', // PREG_JIT_STACKLIMIT_ERROR
 		];
 		$res = Callback::invokeSafe($func, $args, function ($message) use ($args) {
 			// compile-time error, not detectable by preg_last_error

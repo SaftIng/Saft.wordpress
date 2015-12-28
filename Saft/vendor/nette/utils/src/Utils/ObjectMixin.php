@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Utils;
@@ -17,13 +17,13 @@ use Nette\MemberAccessException;
 class ObjectMixin
 {
 	/** @var array (name => 0 | bool | array)  used by getMethods() */
-	private static $methods;
+	private static $methods = [];
 
 	/** @var array (name => 'event' | TRUE)  used by hasProperty() */
-	private static $props;
+	private static $props = [];
 
 	/** @var array (name => [type => callback])  used by get|setExtensionMethod() */
-	private static $extMethods;
+	private static $extMethods = [];
 
 
 	/**
@@ -88,10 +88,16 @@ class ObjectMixin
 			return Callback::invokeArgs($cb, $args);
 
 		} else {
+			$hint = self::getSuggestion(array_merge(
+				get_class_methods($class),
+				self::parseFullDoc($class, '~^[ \t*]*@method[ \t]+(?:\S+[ \t]+)??(\w+)\(~m'),
+				array_keys(self::getExtensionMethods($class))
+			), $name);
+
 			if (method_exists($class, $name)) { // called parent::$name()
 				$class = 'parent';
 			}
-			throw new MemberAccessException("Call to undefined method $class::$name().");
+			throw new MemberAccessException("Call to undefined method $class::$name()" . ($hint ? ", did you mean $hint()?" : '.'));
 		}
 	}
 
@@ -106,7 +112,11 @@ class ObjectMixin
 	 */
 	public static function callStatic($class, $method, $args)
 	{
-		throw new MemberAccessException("Call to undefined static method $class::$method().");
+		$hint = self::getSuggestion(array_filter(
+			get_class_methods($class),
+			function ($m) use ($class) { return (new \ReflectionMethod($class, $m))->isStatic(); }
+		), $method);
+		throw new MemberAccessException("Call to undefined static method $class::$method()" . ($hint ? ", did you mean $hint()?" : '.'));
 	}
 
 
@@ -138,12 +148,28 @@ class ObjectMixin
 			}
 
 		} elseif (isset($methods[$name])) { // public method as closure getter
+			if (preg_match('#^(is|get|has)([A-Z]|$)#', $name) && !(new \ReflectionMethod($class, $name))->getNumberOfRequiredParameters()) {
+				$source = '';
+				foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $item) {
+					if (isset($item['file']) && dirname($item['file']) !== __DIR__) {
+						$source = " in $item[file]:$item[line]";
+						break;
+					}
+				}
+				trigger_error("Did you forget parentheses after $name$source?", E_USER_WARNING);
+			}
 			$val = Callback::closure($_this, $name);
 			return $val;
 
+		} elseif (isset($methods['set' . $uname])) { // strict class
+			throw new MemberAccessException("Cannot read a write-only property $class::\$$name.");
+
 		} else { // strict class
-			$type = isset($methods['set' . $uname]) ? 'a write-only' : 'an undeclared';
-			throw new MemberAccessException("Cannot read $type property $class::\$$name.");
+			$hint = self::getSuggestion(array_merge(
+				array_keys(get_class_vars($class)),
+				self::parseFullDoc($class, '~^[ \t*]*@property(?:-read)?[ \t]+(?:\S+[ \t]+)??\$(\w+)~m')
+			), $name);
+			throw new MemberAccessException("Cannot read an undeclared property $class::\$$name" . ($hint ? ", did you mean \$$hint?" : '.'));
 		}
 	}
 
@@ -171,10 +197,15 @@ class ObjectMixin
 		} elseif (isset($methods[$m = 'set' . $uname])) { // property setter
 			$_this->$m($value);
 
+		} elseif (isset($methods['get' . $uname]) || isset($methods['is' . $uname])) { // strict class
+			throw new MemberAccessException("Cannot write to a read-only property $class::\$$name.");
+
 		} else { // strict class
-			$type = isset($methods['get' . $uname]) || isset($methods['is' . $uname])
-				? 'a read-only' : 'an undeclared';
-			throw new MemberAccessException("Cannot write to $type property $class::\$$name.");
+			$hint = self::getSuggestion(array_merge(
+				array_keys(get_class_vars($class)),
+				self::parseFullDoc($class, '~^[ \t*]*@property(?:-write)?[ \t]+(?:\S+[ \t]+)??\$(\w+)~m')
+			), $name);
+			throw new MemberAccessException("Cannot write to an undeclared property $class::\$$name" . ($hint ? ", did you mean \$$hint?" : '.'));
 		}
 	}
 
@@ -256,13 +287,15 @@ class ObjectMixin
 		preg_match_all('~^
 			[ \t*]*  @method  [ \t]+
 			(?: [^\s(]+  [ \t]+ )?
-			(set|get|is|add)  ([A-Z]\w*)  [ \t]*
-			(?: \(  [ \t]* ([^)$\s]+)  )?
-		()~mx', $rc->getDocComment(), $matches, PREG_SET_ORDER);
+			(set|get|is|add)  ([A-Z]\w*)
+			(?: ([ \t]* \()  [ \t]* ([^)$\s]*)  )?
+		()~mx', (string) $rc->getDocComment(), $matches, PREG_SET_ORDER);
 
 		$methods = [];
-		foreach ($matches as $m) {
-			list(, $op, $prop, $type) = $m;
+		foreach ($matches as list(, $op, $prop, $bracket, $type)) {
+			if ($bracket !== '(') {
+				trigger_error("Bracket must be immediately after @method $op$prop() in class $class.", E_USER_WARNING);
+			}
 			$name = $op . $prop;
 			$prop = strtolower($prop[0]) . substr($prop, 1) . ($op === 'add' ? 's' : '');
 			if ($rc->hasProperty($prop) && ($rp = $rc->getProperty($prop)) && !$rp->isStatic()) {
@@ -270,10 +303,10 @@ class ObjectMixin
 				if ($op === 'get' || $op === 'is') {
 					$type = NULL;
 					$op = 'get';
-				} elseif (!$type && preg_match('#@var[ \t]+(\S+)' . ($op === 'add' ? '\[\]#' : '#'), $rp->getDocComment(), $m)) {
+				} elseif (!$type && preg_match('#@var[ \t]+(\S+)' . ($op === 'add' ? '\[\]#' : '#'), (string) $rp->getDocComment(), $m)) {
 					$type = $m[1];
 				}
-				if ($rc->inNamespace() && preg_match('#^[A-Z]\w+(\[|\||\z)#', $type)) {
+				if ($rc->inNamespace() && preg_match('#^[A-Z]\w+(\[|\||\z)#', (string) $type)) {
 					$type = $rc->getNamespaceName() . '\\' . $type;
 				}
 				$methods[$name] = [$op, $rp, $type];
@@ -385,6 +418,56 @@ class ObjectMixin
 			}
 		}
 		return $cache = FALSE;
+	}
+
+
+	/**
+	 * Returns extension methods.
+	 * @param  string
+	 * @return array
+	 */
+	public static function getExtensionMethods($class)
+	{
+		$res = [];
+		foreach (array_keys(self::$extMethods) as $name) {
+			if ($cb = self::getExtensionMethod($class, $name)) {
+				$res[$name] = $cb;
+			}
+		}
+		return $res;
+	}
+
+
+	/**
+	 * Finds the best suggestion (for 8-bit encoding).
+	 * @return string|NULL
+	 * @internal
+	 */
+	public static function getSuggestion(array $items, $value)
+	{
+		$norm = preg_replace($re = '#^(get|set|has|is|add)(?=[A-Z])#', '', $value);
+		$best = NULL;
+		$min = (strlen($value) / 4 + 1) * 10 + .1;
+		foreach (array_unique($items) as $item) {
+			if ($item !== $value && (
+				($len = levenshtein($item, $value, 10, 11, 10)) < $min
+				|| ($len = levenshtein(preg_replace($re, '', $item), $norm, 10, 11, 10) + 20) < $min
+			)) {
+				$min = $len;
+				$best = $item;
+			}
+		}
+		return $best;
+	}
+
+
+	private static function parseFullDoc($class, $pattern)
+	{
+		$rc = new \ReflectionClass($class);
+		do {
+			$doc[] = $rc->getDocComment();
+		} while ($rc = $rc->getParentClass());
+		return preg_match_all($pattern, implode($doc), $m) ? $m[1] : [];
 	}
 
 }

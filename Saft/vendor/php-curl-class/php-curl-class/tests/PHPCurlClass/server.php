@@ -1,5 +1,5 @@
 <?php
-require 'Helper.php';
+require_once 'Helper.php';
 
 use \Helper\Test;
 
@@ -105,6 +105,9 @@ if ($test == 'http_basic_auth') {
     echo $http_raw_post_data;
     exit;
 } elseif ($test === 'put') {
+    echo $http_raw_post_data;
+    exit;
+} elseif ($test === 'patch') {
     echo $http_raw_post_data;
     exit;
 } elseif ($test === 'post_multidimensional') {
@@ -235,6 +238,10 @@ if ($test == 'http_basic_auth') {
         'get' => $_GET,
         'delete' => $_DELETE,
     ));
+    exit;
+} elseif ($test === 'data_values') {
+    header('Content-Type: application/json');
+    echo json_encode($data_values);
     exit;
 }
 

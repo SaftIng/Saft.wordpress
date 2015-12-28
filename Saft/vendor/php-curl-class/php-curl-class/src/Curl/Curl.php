@@ -2,47 +2,90 @@
 
 namespace Curl;
 
+abstract class CurlCookieConst
+{
+    private static $RFC2616 = array();
+    private static $RFC6265 = array();
+
+    public static function Init() {
+        self::$RFC2616 = array_fill_keys(array(
+            // RFC2616: "any CHAR except CTLs or separators".
+            '!', '#', '$', '%', '&', "'", '*', '+', '-', '.', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',
+            'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
+            'W', 'X', 'Y', 'Z', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+            'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '|', '~',
+        ), true);
+
+        self::$RFC6265 = array_fill_keys(array(
+            // RFC6265: "US-ASCII characters excluding CTLs, whitespace DQUOTE, comma, semicolon, and backslash".
+            // %x21
+            '!',
+            // %x23-2B
+            '#', '$', '%', '&', "'", '(', ')', '*', '+',
+            // %x2D-3A
+            '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':',
+            // %x3C-5B
+            '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+            'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[',
+            // %x5D-7E
+            ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+            'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~',
+        ), true);
+    }
+
+    public static function RFC2616() {
+        return self::$RFC2616;
+    }
+
+    public static function RFC6265() {
+        return self::$RFC6265;
+    }
+}
+
+CurlCookieConst::Init();
+
 class Curl
 {
-    const VERSION = '3.6.6';
+    const VERSION = '4.8.2';
     const DEFAULT_TIMEOUT = 30;
 
     public $curl;
     public $id = null;
 
     public $error = false;
-    public $error_code = 0;
-    public $error_message = null;
+    public $errorCode = 0;
+    public $errorMessage = null;
 
-    public $curl_error = false;
-    public $curl_error_code = 0;
-    public $curl_error_message = null;
+    public $curlError = false;
+    public $curlErrorCode = 0;
+    public $curlErrorMessage = null;
 
-    public $http_error = false;
-    public $http_status_code = 0;
-    public $http_error_message = null;
+    public $httpError = false;
+    public $httpStatusCode = 0;
+    public $httpErrorMessage = null;
 
-    public $base_url = null;
+    public $baseUrl = null;
     public $url = null;
-    public $request_headers = null;
-    public $response_headers = null;
-    public $raw_response_headers = '';
+    public $requestHeaders = null;
+    public $responseHeaders = null;
+    public $rawResponseHeaders = '';
     public $response = null;
-    public $raw_response = null;
+    public $rawResponse = null;
 
-    public $before_send_function = null;
-    public $download_complete_function = null;
-    private $success_function = null;
-    private $error_function = null;
-    private $complete_function = null;
+    public $beforeSendFunction = null;
+    public $downloadCompleteFunction = null;
+    private $successFunction = null;
+    private $errorFunction = null;
+    private $completeFunction = null;
 
     private $cookies = array();
+    private $responseCookies = array();
     private $headers = array();
     private $options = array();
 
-    private $json_decoder = null;
-    private $json_pattern = '/^(?:application|text)\/(?:[a-z]+(?:[\.-][0-9a-z]+){0,}[\+\.]|x-)?json(?:-[a-z]+)?/i';
-    private $xml_pattern = '~^(?:text/|application/(?:atom\+|rss\+)?)xml~i';
+    private $jsonDecoder = null;
+    private $jsonPattern = '/^(?:application|text)\/(?:[a-z]+(?:[\.-][0-9a-z]+){0,}[\+\.]|x-)?json(?:-[a-z]+)?/i';
+    private $xmlPattern = '~^(?:text/|application/(?:atom\+|rss\+)?)xml~i';
 
     /**
      * Construct
@@ -77,7 +120,7 @@ class Curl
      */
     public function beforeSend($callback)
     {
-        $this->before_send_function = $callback;
+        $this->beforeSendFunction = $callback;
     }
 
     /**
@@ -93,7 +136,7 @@ class Curl
         if (is_array($data)) {
             if (self::is_array_multidim($data)) {
                 if (isset($this->headers['Content-Type']) &&
-                    preg_match($this->json_pattern, $this->headers['Content-Type'])) {
+                    preg_match($this->jsonPattern, $this->headers['Content-Type'])) {
                     $json_str = json_encode($data);
                     if (!($json_str === false)) {
                         $data = $json_str;
@@ -104,15 +147,13 @@ class Curl
             } else {
                 $binary_data = false;
                 foreach ($data as $key => $value) {
-                    // Fix "Notice: Array to string conversion" when $value in
-                    // curl_setopt($ch, CURLOPT_POSTFIELDS, $value) is an array
-                    // that contains an empty array.
+                    // Fix "Notice: Array to string conversion" when $value in curl_setopt($ch, CURLOPT_POSTFIELDS,
+                    // $value) is an array that contains an empty array.
                     if (is_array($value) && empty($value)) {
                         $data[$key] = '';
-                    // Fix "curl_setopt(): The usage of the @filename API for
-                    // file uploading is deprecated. Please use the CURLFile
-                    // class instead".
-                    } elseif (is_string($value) && strpos($value, '@') === 0) {
+                    // Fix "curl_setopt(): The usage of the @filename API for file uploading is deprecated. Please use
+                    // the CURLFile class instead". Ignore non-file values prefixed with the @ character.
+                    } elseif (is_string($value) && strpos($value, '@') === 0 && is_file(substr($value, 1))) {
                         $binary_data = true;
                         if (class_exists('CURLFile')) {
                             $data[$key] = new \CURLFile(substr($value, 1));
@@ -124,7 +165,7 @@ class Curl
 
                 if (!$binary_data) {
                     if (isset($this->headers['Content-Type']) &&
-                        preg_match($this->json_pattern, $this->headers['Content-Type'])) {
+                        preg_match($this->jsonPattern, $this->headers['Content-Type'])) {
                         $json_str = json_encode($data);
                         if (!($json_str === false)) {
                             $data = $json_str;
@@ -165,7 +206,7 @@ class Curl
             curl_close($this->curl);
         }
         $this->options = null;
-        $this->json_decoder = null;
+        $this->jsonDecoder = null;
     }
 
     /**
@@ -176,7 +217,7 @@ class Curl
      */
     public function complete($callback)
     {
-        $this->complete_function = $callback;
+        $this->completeFunction = $callback;
     }
 
     /**
@@ -206,7 +247,7 @@ class Curl
         if (is_array($url)) {
             $data = $query_parameters;
             $query_parameters = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
 
         $this->setURL($url, $query_parameters);
@@ -223,10 +264,10 @@ class Curl
      */
     public function downloadComplete($fh)
     {
-        if (!$this->error && $this->download_complete_function) {
+        if (!$this->error && $this->downloadCompleteFunction) {
             rewind($fh);
-            $this->call($this->download_complete_function, $fh);
-            $this->download_complete_function = null;
+            $this->call($this->downloadCompleteFunction, $fh);
+            $this->downloadCompleteFunction = null;
         }
 
         if (is_resource($fh)) {
@@ -262,7 +303,7 @@ class Curl
     public function download($url, $mixed_filename)
     {
         if (is_callable($mixed_filename)) {
-            $this->download_complete_function = $mixed_filename;
+            $this->downloadCompleteFunction = $mixed_filename;
             $fh = tmpfile();
         } else {
             $filename = $mixed_filename;
@@ -284,7 +325,7 @@ class Curl
      */
     public function error($callback)
     {
-        $this->error_function = $callback;
+        $this->errorFunction = $callback;
     }
 
     /**
@@ -297,40 +338,44 @@ class Curl
      */
     public function exec($ch = null)
     {
+        $this->responseCookies = array();
         if (!($ch === null)) {
-            $this->raw_response = curl_multi_getcontent($ch);
+            $this->rawResponse = curl_multi_getcontent($ch);
         } else {
-            $this->call($this->before_send_function);
-            $this->raw_response = curl_exec($this->curl);
-            $this->curl_error_code = curl_errno($this->curl);
+            $this->call($this->beforeSendFunction);
+            $this->rawResponse = curl_exec($this->curl);
+            $this->curlErrorCode = curl_errno($this->curl);
         }
+        $this->curlErrorMessage = curl_error($this->curl);
+        $this->curlError = !($this->curlErrorCode === 0);
+        $this->httpStatusCode = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
+        $this->httpError = in_array(floor($this->httpStatusCode / 100), array(4, 5));
+        $this->error = $this->curlError || $this->httpError;
+        $this->errorCode = $this->error ? ($this->curlError ? $this->curlErrorCode : $this->httpStatusCode) : 0;
 
-        $this->curl_error_message = curl_error($this->curl);
-        $this->curl_error = !($this->curl_error_code === 0);
-        $this->http_status_code = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
-        $this->http_error = in_array(floor($this->http_status_code / 100), array(4, 5));
-        $this->error = $this->curl_error || $this->http_error;
-        $this->error_code = $this->error ? ($this->curl_error ? $this->curl_error_code : $this->http_status_code) : 0;
+        // NOTE: CURLINFO_HEADER_OUT set to true is required for requestHeaders
+        // to not be empty (e.g. $curl->setOpt(CURLINFO_HEADER_OUT, true);).
+        if ($this->getOpt(CURLINFO_HEADER_OUT) === true) {
+            $this->requestHeaders = $this->parseRequestHeaders(curl_getinfo($this->curl, CURLINFO_HEADER_OUT));
+        }
+        $this->responseHeaders = $this->parseResponseHeaders($this->rawResponseHeaders);
+        list($this->response, $this->rawResponse) = $this->parseResponse($this->responseHeaders, $this->rawResponse);
 
-        $this->request_headers = $this->parseRequestHeaders(curl_getinfo($this->curl, CURLINFO_HEADER_OUT));
-        $this->response_headers = $this->parseResponseHeaders($this->raw_response_headers);
-        list($this->response, $this->raw_response) = $this->parseResponse($this->response_headers, $this->raw_response);
-
-        $this->http_error_message = '';
+        $this->httpErrorMessage = '';
         if ($this->error) {
-            if (isset($this->response_headers['Status-Line'])) {
-                $this->http_error_message = $this->response_headers['Status-Line'];
+            if (isset($this->responseHeaders['Status-Line'])) {
+                $this->httpErrorMessage = $this->responseHeaders['Status-Line'];
             }
         }
-        $this->error_message = $this->curl_error ? $this->curl_error_message : $this->http_error_message;
+        $this->errorMessage = $this->curlError ? $this->curlErrorMessage : $this->httpErrorMessage;
 
         if (!$this->error) {
-            $this->call($this->success_function);
+            $this->call($this->successFunction);
         } else {
-            $this->call($this->error_function);
+            $this->call($this->errorFunction);
         }
 
-        $this->call($this->complete_function);
+        $this->call($this->completeFunction);
 
         return $this->response;
     }
@@ -348,7 +393,7 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $this->setURL($url, $data);
         $this->setOpt(CURLOPT_CUSTOMREQUEST, 'GET');
@@ -382,7 +427,7 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $this->setURL($url, $data);
         $this->setOpt(CURLOPT_CUSTOMREQUEST, 'HEAD');
@@ -401,7 +446,10 @@ class Curl
      */
     public function headerCallback($ch, $header)
     {
-        $this->raw_response_headers .= $header;
+        if (preg_match('/^Set-Cookie:\s*([^=]+)=([^;]+)/mi', $header, $cookie) == 1) {
+            $this->responseCookies[$cookie[1]] = $cookie[2];
+        }
+        $this->rawResponseHeaders .= $header;
         return strlen($header);
     }
 
@@ -418,7 +466,7 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $this->setURL($url, $data);
         $this->unsetHeader('Content-Length');
@@ -439,12 +487,16 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
+
+        if (is_array($data) && empty($data)) {
+            $this->unsetHeader('Content-Length');
+        }
+
         $this->setURL($url);
-        $this->unsetHeader('Content-Length');
         $this->setOpt(CURLOPT_CUSTOMREQUEST, 'PATCH');
-        $this->setOpt(CURLOPT_POSTFIELDS, $data);
+        $this->setOpt(CURLOPT_POSTFIELDS, $this->buildPostData($data));
         return $this->exec();
     }
 
@@ -461,11 +513,7 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
-        }
-
-        if (is_array($data) && empty($data)) {
-            $this->unsetHeader('Content-Length');
+            $url = $this->baseUrl;
         }
 
         $this->setURL($url);
@@ -488,7 +536,7 @@ class Curl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $this->setURL($url);
         $this->setOpt(CURLOPT_CUSTOMREQUEST, 'PUT');
@@ -535,8 +583,52 @@ class Curl
      */
     public function setCookie($key, $value)
     {
-        $this->cookies[$key] = $value;
-        $this->setOpt(CURLOPT_COOKIE, str_replace(' ', '%20', urldecode(http_build_query($this->cookies, '', '; '))));
+        $name_chars = array();
+        foreach (str_split($key) as $name_char) {
+            if (!array_key_exists($name_char, CurlCookieConst::RFC2616())) {
+                $name_chars[] = rawurlencode($name_char);
+            } else {
+                $name_chars[] = $name_char;
+            }
+        }
+
+        $value_chars = array();
+        foreach (str_split($value) as $value_char) {
+            if (!array_key_exists($value_char, CurlCookieConst::RFC6265())) {
+                $value_chars[] = rawurlencode($value_char);
+            } else {
+                $value_chars[] = $value_char;
+            }
+        }
+
+        $this->cookies[implode('', $name_chars)] = implode('', $value_chars);
+        $this->setOpt(CURLOPT_COOKIE, implode('; ', array_map(function($k, $v) {
+            return $k . '=' . $v;
+        }, array_keys($this->cookies), array_values($this->cookies))));
+    }
+
+    /**
+     * Get cookie.
+     *
+     * @access public
+     * @param  $key
+     * @return mixed
+     */
+    public function getCookie($key)
+    {
+        return $this->getResponseCookie($key);
+    }
+
+    /**
+     * Get response cookie.
+     *
+     * @access public
+     * @param  $key
+     * @return mixed
+     */
+    public function getResponseCookie($key)
+    {
+        return isset($this->responseCookies[$key]) ? $this->responseCookies[$key] : null;
     }
 
     /**
@@ -590,7 +682,7 @@ class Curl
      */
     public function setDefaultJsonDecoder()
     {
-        $this->json_decoder = function($response) {
+        $this->jsonDecoder = function($response) {
             $json_obj = json_decode($response, false);
             if (!($json_obj === null)) {
                 $response = $json_obj;
@@ -637,11 +729,9 @@ class Curl
         $this->headers[$key] = $value;
         $headers = array();
         foreach ($this->headers as $key => $value) {
-            $headers[$key] = $value;
+            $headers[] = $key . ': ' . $value;
         }
-        $this->setOpt(CURLOPT_HTTPHEADER, array_map(function($value, $key) {
-            return $key . ': ' . $value;
-        }, $headers, array_keys($headers)));
+        $this->setOpt(CURLOPT_HTTPHEADER, $headers);
     }
 
     /**
@@ -653,7 +743,7 @@ class Curl
     public function setJsonDecoder($function)
     {
         if (is_callable($function)) {
-            $this->json_decoder = $function;
+            $this->jsonDecoder = $function;
         }
     }
 
@@ -669,7 +759,6 @@ class Curl
     public function setOpt($option, $value)
     {
         $required_options = array(
-            CURLINFO_HEADER_OUT    => 'CURLINFO_HEADER_OUT',
             CURLOPT_RETURNTRANSFER => 'CURLOPT_RETURNTRANSFER',
         );
 
@@ -723,7 +812,7 @@ class Curl
      */
     public function setURL($url, $data = array())
     {
-        $this->base_url = $url;
+        $this->baseUrl = $url;
         $this->url = $this->buildURL($url, $data);
         $this->setOpt(CURLOPT_URL, $this->url);
     }
@@ -747,7 +836,7 @@ class Curl
      */
     public function success($callback)
     {
-        $this->success_function = $callback;
+        $this->successFunction = $callback;
     }
 
     /**
@@ -766,11 +855,18 @@ class Curl
      * Verbose
      *
      * @access public
-     * @param  $on
+     * @param bool $on
+     * @param resource $output
      */
-    public function verbose($on = true)
+    public function verbose($on = true, $output=STDERR)
     {
+        // Turn off CURLINFO_HEADER_OUT for verbose to work. This has the side
+        // effect of causing Curl::requestHeaders to be empty.
+        if ($on) {
+            $this->setOpt(CURLINFO_HEADER_OUT, false);
+        }
         $this->setOpt(CURLOPT_VERBOSE, $on);
+        $this->setOpt(CURLOPT_STDERR, $output);
     }
 
     /**
@@ -858,12 +954,12 @@ class Curl
     {
         $response = $raw_response;
         if (isset($response_headers['Content-Type'])) {
-            if (preg_match($this->json_pattern, $response_headers['Content-Type'])) {
-                $json_decoder = $this->json_decoder;
+            if (preg_match($this->jsonPattern, $response_headers['Content-Type'])) {
+                $json_decoder = $this->jsonDecoder;
                 if (is_callable($json_decoder)) {
                     $response = $json_decoder($response);
                 }
-            } elseif (preg_match($this->xml_pattern, $response_headers['Content-Type'])) {
+            } elseif (preg_match($this->xmlPattern, $response_headers['Content-Type'])) {
                 $xml_obj = @simplexml_load_string($response);
                 if (!($xml_obj === false)) {
                     $response = $xml_obj;
@@ -962,75 +1058,5 @@ class Curl
         }
 
         return (bool)count(array_filter($array, 'is_array'));
-    }
-}
-
-class CaseInsensitiveArray implements \ArrayAccess, \Countable, \Iterator
-{
-    private $container = array();
-
-    public function offsetSet($offset, $value)
-    {
-        if ($offset === null) {
-            $this->container[] = $value;
-        } else {
-            $index = array_search(strtolower($offset), array_keys(array_change_key_case($this->container, CASE_LOWER)));
-            if (!($index === false)) {
-                $keys = array_keys($this->container);
-                unset($this->container[$keys[$index]]);
-            }
-            $this->container[$offset] = $value;
-        }
-    }
-
-    public function offsetExists($offset)
-    {
-        return array_key_exists(strtolower($offset), array_change_key_case($this->container, CASE_LOWER));
-    }
-
-    public function offsetUnset($offset)
-    {
-        unset($this->container[$offset]);
-    }
-
-    public function offsetGet($offset)
-    {
-        $index = array_search(strtolower($offset), array_keys(array_change_key_case($this->container, CASE_LOWER)));
-        if ($index === false) {
-            return null;
-        }
-
-        $values = array_values($this->container);
-        return $values[$index];
-    }
-
-    public function count()
-    {
-        return count($this->container);
-    }
-
-    public function current()
-    {
-        return current($this->container);
-    }
-
-    public function next()
-    {
-        return next($this->container);
-    }
-
-    public function key()
-    {
-        return key($this->container);
-    }
-
-    public function valid()
-    {
-        return !($this->current() === false);
-    }
-
-    public function rewind()
-    {
-        reset($this->container);
     }
 }

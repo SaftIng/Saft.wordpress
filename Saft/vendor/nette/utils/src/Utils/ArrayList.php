@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Utils;
@@ -12,8 +12,6 @@ use Nette;
 
 /**
  * Provides the base class for a generic list (items can be accessed by index).
- *
- * @property-read \ArrayIterator $iterator
  */
 class ArrayList extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAggregate
 {
@@ -99,6 +97,17 @@ class ArrayList extends Nette\Object implements \ArrayAccess, \Countable, \Itera
 			throw new Nette\OutOfRangeException('Offset invalid or out of range');
 		}
 		array_splice($this->list, (int) $index, 1);
+	}
+
+
+	/**
+	 * Prepends a item.
+	 * @param  mixed
+	 * @return void
+	 */
+	public function prepend($value)
+	{
+		array_unshift($this->list, $value);
 	}
 
 }

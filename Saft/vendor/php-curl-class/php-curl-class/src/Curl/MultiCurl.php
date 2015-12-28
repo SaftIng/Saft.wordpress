@@ -4,21 +4,23 @@ namespace Curl;
 
 class MultiCurl
 {
-    public $base_url = null;
-    public $multi_curl;
+    public $baseUrl = null;
+    public $multiCurl;
     public $curls = array();
-    private $curl_fhs = array();
+    private $curlFileHandles = array();
+    private $nextCurlId = 1;
+    private $isStarted = false;
 
-    private $before_send_function = null;
-    private $success_function = null;
-    private $error_function = null;
-    private $complete_function = null;
+    private $beforeSendFunction = null;
+    private $successFunction = null;
+    private $errorFunction = null;
+    private $completeFunction = null;
 
     private $cookies = array();
     private $headers = array();
     private $options = array();
 
-    private $json_decoder = null;
+    private $jsonDecoder = null;
 
     /**
      * Construct
@@ -28,7 +30,7 @@ class MultiCurl
      */
     public function __construct($base_url = null)
     {
-        $this->multi_curl = curl_multi_init();
+        $this->multiCurl = curl_multi_init();
         $this->headers = new CaseInsensitiveArray();
         $this->setURL($base_url);
     }
@@ -48,7 +50,7 @@ class MultiCurl
         if (is_array($url)) {
             $data = $query_parameters;
             $query_parameters = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url, $query_parameters);
@@ -74,7 +76,7 @@ class MultiCurl
 
         if (is_callable($mixed_filename)) {
             $callback = $mixed_filename;
-            $curl->download_complete_function = $callback;
+            $curl->downloadCompleteFunction = $callback;
             $fh = tmpfile();
         } else {
             $filename = $mixed_filename;
@@ -85,7 +87,7 @@ class MultiCurl
         $curl->setOpt(CURLOPT_CUSTOMREQUEST, 'GET');
         $curl->setOpt(CURLOPT_HTTPGET, true);
         $this->addHandle($curl);
-        $this->curl_fhs[$curl->id] = $fh;
+        $this->curlFileHandles[$curl->id] = $fh;
         return $curl;
     }
 
@@ -102,7 +104,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url, $data);
@@ -125,7 +127,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url, $data);
@@ -148,7 +150,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url, $data);
@@ -171,7 +173,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url);
@@ -195,7 +197,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
 
         $curl = new Curl();
@@ -225,7 +227,7 @@ class MultiCurl
     {
         if (is_array($url)) {
             $data = $url;
-            $url = $this->base_url;
+            $url = $this->baseUrl;
         }
         $curl = new Curl();
         $curl->setURL($url);
@@ -245,7 +247,7 @@ class MultiCurl
      */
     public function beforeSend($callback)
     {
-        $this->before_send_function = $callback;
+        $this->beforeSendFunction = $callback;
     }
 
     /**
@@ -259,7 +261,9 @@ class MultiCurl
             $ch->close();
         }
 
-        curl_multi_close($this->multi_curl);
+        if (is_resource($this->multiCurl)) {
+            curl_multi_close($this->multiCurl);
+        }
     }
 
     /**
@@ -270,7 +274,7 @@ class MultiCurl
      */
     public function complete($callback)
     {
-        $this->complete_function = $callback;
+        $this->completeFunction = $callback;
     }
 
     /**
@@ -281,7 +285,7 @@ class MultiCurl
      */
     public function error($callback)
     {
-        $this->error_function = $callback;
+        $this->errorFunction = $callback;
     }
 
     /**
@@ -307,6 +311,19 @@ class MultiCurl
     public function setBasicAuthentication($username, $password = '')
     {
         $this->setOpt(CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        $this->setOpt(CURLOPT_USERPWD, $username . ':' . $password);
+    }
+
+    /**
+     * Set Digest Authentication
+     *
+     * @access public
+     * @param  $username
+     * @param  $password
+     */
+    public function setDigestAuthentication($username, $password = '')
+    {
+        $this->setOpt(CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
         $this->setOpt(CURLOPT_USERPWD, $username . ':' . $password);
     }
 
@@ -366,7 +383,7 @@ class MultiCurl
     public function setJsonDecoder($function)
     {
         if (is_callable($function)) {
-            $this->json_decoder = $function;
+            $this->jsonDecoder = $function;
         }
     }
 
@@ -423,7 +440,7 @@ class MultiCurl
      */
     public function setURL($url)
     {
-        $this->base_url = $url;
+        $this->baseUrl = $url;
     }
 
     /**
@@ -445,41 +462,41 @@ class MultiCurl
     public function start()
     {
         foreach ($this->curls as $ch) {
-            foreach ($this->options as $option => $value) {
-                $ch->setOpt($option, $value);
-            }
-            foreach ($this->headers as $key => $value) {
-                $ch->setHeader($key, $value);
-            }
-            $ch->setJsonDecoder($this->json_decoder);
-            $ch->call($ch->before_send_function);
+            $this->initHandle($ch);
         }
 
-        $curl_handles = $this->curls;
-        do {
-            curl_multi_select($this->multi_curl);
-            curl_multi_exec($this->multi_curl, $active);
+        $this->isStarted = true;
 
-            while (!($info_array = curl_multi_info_read($this->multi_curl)) === false) {
+        do {
+            curl_multi_select($this->multiCurl);
+            curl_multi_exec($this->multiCurl, $active);
+
+            while (!($info_array = curl_multi_info_read($this->multiCurl)) === false) {
                 if ($info_array['msg'] === CURLMSG_DONE) {
-                    foreach ($curl_handles as $key => $ch) {
+                    foreach ($this->curls as $key => $ch) {
                         if ($ch->curl === $info_array['handle']) {
-                            $ch->curl_error_code = $info_array['result'];
+                            $ch->curlErrorCode = $info_array['result'];
                             $ch->exec($ch->curl);
-                            curl_multi_remove_handle($this->multi_curl, $ch->curl);
-                            unset($curl_handles[$key]);
+                            curl_multi_remove_handle($this->multiCurl, $ch->curl);
+                            unset($this->curls[$key]);
 
                             // Close open file handles and reset the curl instance.
-                            if (isset($this->curl_fhs[$ch->id])) {
-                                $ch->downloadComplete($this->curl_fhs[$ch->id]);
-                                unset($this->curl_fhs[$ch->id]);
+                            if (isset($this->curlFileHandles[$ch->id])) {
+                                $ch->downloadComplete($this->curlFileHandles[$ch->id]);
+                                unset($this->curlFileHandles[$ch->id]);
                             }
                             break;
                         }
                     }
                 }
             }
+
+            if (!$active) {
+                $active = count($this->curls);
+            }
         } while ($active > 0);
+
+        $this->isStarted = false;
     }
 
     /**
@@ -490,7 +507,7 @@ class MultiCurl
      */
     public function success($callback)
     {
-        $this->success_function = $callback;
+        $this->successFunction = $callback;
     }
 
     /**
@@ -535,15 +552,37 @@ class MultiCurl
      */
     private function addHandle($curl)
     {
-        $curlm_error_code = curl_multi_add_handle($this->multi_curl, $curl->curl);
+        $curlm_error_code = curl_multi_add_handle($this->multiCurl, $curl->curl);
         if (!($curlm_error_code === CURLM_OK)) {
             throw new \ErrorException('cURL multi add handle error: ' . curl_multi_strerror($curlm_error_code));
         }
-        $curl->beforeSend($this->before_send_function);
-        $curl->success($this->success_function);
-        $curl->error($this->error_function);
-        $curl->complete($this->complete_function);
+        $curl->beforeSend($this->beforeSendFunction);
+        $curl->success($this->successFunction);
+        $curl->error($this->errorFunction);
+        $curl->complete($this->completeFunction);
         $this->curls[] = $curl;
-        $curl->id = count($this->curls);
+        $curl->id = $this->nextCurlId++;
+
+        if ($this->isStarted) {
+            $this->initHandle($curl);
+        }
+    }
+
+    /**
+     * Init Handle
+     *
+     * @access private
+     * @param  $curl
+     */
+    private function initHandle($curl)
+    {
+        foreach ($this->options as $option => $value) {
+            $curl->setOpt($option, $value);
+        }
+        foreach ($this->headers as $key => $value) {
+            $curl->setHeader($key, $value);
+        }
+        $curl->setJsonDecoder($this->jsonDecoder);
+        $curl->call($curl->beforeSendFunction);
     }
 }

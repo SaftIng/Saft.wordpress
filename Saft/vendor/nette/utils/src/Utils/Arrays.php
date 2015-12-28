@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Utils;
@@ -56,7 +56,7 @@ class Arrays
 	 * @return mixed
 	 * @throws Nette\InvalidArgumentException if traversed item is not an array
 	 */
-	public static function & getRef(& $arr, $key)
+	public static function & getRef(array & $arr, $key)
 	{
 		foreach (is_array($key) ? $key : [$key] as $k) {
 			if (is_array($arr) || $arr === NULL) {
@@ -73,7 +73,7 @@ class Arrays
 	 * Recursively appends elements of remaining keys from the second array to the first.
 	 * @return array
 	 */
-	public static function mergeTree($arr1, $arr2)
+	public static function mergeTree(array $arr1, array $arr2)
 	{
 		$res = $arr1 + $arr2;
 		foreach (array_intersect_key($arr1, $arr2) as $k => $v) {
@@ -89,7 +89,7 @@ class Arrays
 	 * Searches the array for a given key and returns the offset if successful.
 	 * @return int|FALSE offset if it is found, FALSE otherwise
 	 */
-	public static function searchKey($arr, $key)
+	public static function searchKey(array $arr, $key)
 	{
 		$foo = [$key => NULL];
 		return array_search(key($foo), array_keys($arr), TRUE);
@@ -102,7 +102,7 @@ class Arrays
 	 */
 	public static function insertBefore(array & $arr, $key, array $inserted)
 	{
-		$offset = self::searchKey($arr, $key);
+		$offset = (int) self::searchKey($arr, $key);
 		$arr = array_slice($arr, 0, $offset, TRUE) + $inserted + array_slice($arr, $offset, count($arr), TRUE);
 	}
 
@@ -177,7 +177,7 @@ class Arrays
 	{
 		$parts = is_array($path)
 			? $path
-			: preg_split('#(\[\]|->|=|\|)#', $path, NULL, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+			: preg_split('#(\[\]|->|=|\|)#', $path, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 
 		if (!$parts || $parts[0] === '=' || $parts[0] === '|' || $parts === ['->']) {
 			throw new Nette\InvalidArgumentException("Invalid path '$path'.");

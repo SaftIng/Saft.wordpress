@@ -111,6 +111,10 @@ abstract class AbstractQuery implements Query
                 && '"' == substr($entity, strlen($entity)-1, 1))) {
             return 'typed-literal';
 
+        // blank node
+        } elseif (false !== strpos($entity, '_:')) {
+            return 'blanknode';
+
         // checks if $entity is an URL, which was written with prefix, such as rdfs:label
         } elseif (false !== strpos($entity, ':')) {
             return 'uri';
@@ -188,6 +192,8 @@ abstract class AbstractQuery implements Query
      */
     public function determineObjectValue($objectString)
     {
+        $nodeUtils = new NodeUtils();
+
         // checks if ^^< is in $objectString
         $arrowPos = strpos($objectString, '"^^<');
         $atPos = strpos($objectString, '"@');
@@ -209,6 +215,9 @@ abstract class AbstractQuery implements Query
         } elseif ('?' === substr($objectString, 0, 1)) {
             return substr($objectString, 1);
 
+        } elseif ($nodeUtils->simpleCheckURI($objectString)) {
+            return $objectString;
+
         // malformed string, return null as datatype
         } else {
             return null;
@@ -225,13 +234,11 @@ abstract class AbstractQuery implements Query
      */
     public function extractFilterPattern($where)
     {
-        /**
+        /*
          * Remaining filter clauses to cover:
-           - FILTER (?decimal * 10 > ?minPercent )
-           - FILTER (isURI(?person) && !bound(?person))
-           - FILTER (lang(?title) = 'en')
-           - FILTER regex(?ssn, '...')
-        */
+         *  - FILTER (?decimal * 10 > ?minPercent )
+         *  - FILTER (isURI(?person) && !bound(?person))
+         */
 
         $pattern = array();
 
@@ -242,6 +249,8 @@ abstract class AbstractQuery implements Query
         );
 
         foreach ($matches[2] as $match) {
+            // TODO optimize REGEX to ignore " at the end to save the lastChar check later on.
+
             /**
              * Covers filters such as:
              * - FILTER (?o < 40)
@@ -249,28 +258,34 @@ abstract class AbstractQuery implements Query
              */
             preg_match_all(
                 '/' .
-                '(\?[a-zA-Z0-9\_]+)'.   // e.g. ?s
-                '\s*' .                 // space
-                '(=|<|>|!=)' .          // operator, e.g. =
-                '\s*' .                 // space
-                '(".*"|[0-9]*)' .       // constrain, e.g. 40 or "Bar"
-                '/',
+                '\?([a-zA-Z0-9\_]+)'. // e.g. ?s
+                '\s*' .               // space
+                '(=|<|>|!=)' .        // operator, e.g. =
+                '\s*' .               // space
+                '"*(.*)"*' .          // constrain, e.g. 40 or "Bar"
+                '/si',
                 $match,
                 $parts
             );
 
             if (true == isset($parts[3][0])) {
+                // if last char is " or ', cut it out
+                $lastChar = substr($parts[3][0], strlen($parts[3][0])-1);
+                if ('"' == $lastChar || "'" == $lastChar) {
+                    $parts[3][0] = substr($parts[3][0], 0, strlen($parts[3][0])-1);
+                }
+
                 $entry = array(
                     'type'      => 'expression',
                     'sub_type'  => 'relational',
                     'patterns'  => array(
                         array(
-                            'value'     => substr($parts[1][0], 1), // e.g. ?s
+                            'value'     => $parts[1][0], // e.g. ?s
                             'type'      => 'var', // its always a variable
                             'operator'  => ''
                         ),
                         array(
-                            'value'     => str_replace('"', '', $parts[3][0]), // e.g. "Bar"
+                            'value'     => $parts[3][0], // e.g. "Bar"
                             'type'      => 'literal',
                             'operator'  => ''
                         )
@@ -291,49 +306,85 @@ abstract class AbstractQuery implements Query
                 // go to the next match
                 continue;
             }
-        }
 
-        /**
-         * Covers regex filters such as:
-         * - FILTER regex(?g, "aar")
-         * - FILTER regex(?g, "aar", "i")
-         */
-        preg_match_all(
-            '/regex\s*\((\?[a-zA-Z0-9]*),\s*"([^"]*)"(,\s*"(.*)")*\)/',
-            $where,
-            $matches
-        );
+            /**
+             * Covers regex filters such as:
+             * - FILTER regex(?g, "aar")
+             * - FILTER regex(?g, "aar", "i")
+             */
+            preg_match_all(
+                '/FILTER\s+regex\s*\(\?([a-zA-Z0-9]*),\s*"([^"]*)"(,\s*"(.*)")*\)/si',
+                $where,
+                $parts
+            );
 
-        if (true == isset($matches[1][0])) {
-            $entry = array(
-                'args' => array(
-                    array(
-                        'value' => substr($matches[1][0], 1),
-                        'type' => 'var',
-                        'operator' => ''
+            if (true == isset($parts[1][0])) {
+                $entry = array(
+                    'args' => array(
+                        array(
+                            'value' => $parts[1][0],
+                            'type' => 'var',
+                            'operator' => ''
+                        ),
+                        array(
+                            'value' => $parts[2][0],
+                            'type' => 'literal',
+                            'sub_type' => 'literal2',
+                            'operator' => ''
+                        )
                     ),
-                    array(
-                        'value' => $matches[2][0],
+                    'type' => 'built_in_call',
+                    'call' => 'regex',
+                );
+
+                // if optional part is set, which means the regex function got 3 parameter
+                if (0 < strlen($parts[4][0])) {
+                    $entry['args'][] = array(
+                        'value' => $parts[4][0],  // optional part, i
                         'type' => 'literal',
                         'sub_type' => 'literal2',
                         'operator' => ''
-                    )
-                ),
-                'type' => 'built_in_call',
-                'call' => 'regex',
-            );
+                    );
+                }
 
-            // if optional part is set, which means the regex function gots 3 parameter
-            if (true === isset($matches[4][0])) {
-                $entry['args'][] = array(
-                    'value' => $matches[4][0],  // optional part, i
-                    'type' => 'literal',
-                    'sub_type' => 'literal2',
-                    'operator' => ''
-                );
+                $pattern[] = $entry;
+
+                continue;
             }
 
-            $pattern[] = $entry;
+            /**
+             * Covers regex filters such as:
+             * - FILTER (lang(?title) = 'en')
+             */
+            preg_match_all(
+                '/lang\(\?([a-z0-9]+)\)\s*\=\s*[\'|\"]([a-z\_]+)[\'|\"]/si',
+                $match,
+                $parts
+            );
+
+            if (true == isset($parts[1][0])) {
+                $entry = array(
+                    'args' => array(
+                        array(
+                            'value' => $parts[1][0],
+                            'type' => 'var',
+                            'operator' => ''
+                        ),
+                        array(
+                            'value' => $parts[2][0],
+                            'type' => 'literal',
+                            'sub_type' => 'literal2',
+                            'operator' => ''
+                        )
+                    ),
+                    'type' => 'built_in_call',
+                    'call' => 'lang',
+                );
+
+                $pattern[] = $entry;
+
+                continue;
+            }
         }
 
         return $pattern;
@@ -533,7 +584,8 @@ abstract class AbstractQuery implements Query
             '(' .
             '\<[a-z0-9\.\/\:#\-]+\>|' . // e.g. <http://foobar/a>
             '\?[a-z0-9\_]+|' .          // e.g. ?s
-            '[a-z0-9]+\:[a-z0-9]+' .    // e.g. rdfs:label
+            '[a-z0-9]+\:[a-z0-9]+|' .   // e.g. rdfs:label
+            '_:[a-z0-9]+' .             // e.g. _:foo
             ')\s*' .
             /**
              * Predicate part
@@ -664,97 +716,6 @@ abstract class AbstractQuery implements Query
     public function getQuery()
     {
         return $this->query;
-    }
-
-    /**
-     * Get type for a given query.
-     *
-     * @param  string     $query
-     * @return string     Type, which is either askQuery, describeQuery, graphQuery, updateQuery or selectQuery
-     * @throws \Exception If unknown query type.
-     */
-    public static function getQueryType($query)
-    {
-        /**
-         * First we get rid of all PREFIX information
-         */
-        $adaptedQuery = preg_replace('/PREFIX\s+[a-z0-9]+\:\s*\<[a-z0-9\:\/\.\#\-]+\>/', '', $query);
-
-        // remove trailing whitespaces
-        $adaptedQuery = trim($adaptedQuery);
-
-        // only lower chars
-        $adaptedQuery = strtolower($adaptedQuery);
-
-        /**
-         * After we know the type, we initiate the according class and return it.
-         */
-        $firstPart = substr($adaptedQuery, 0, 3);
-
-        switch ($firstPart) {
-            // ASK
-            case 'ask':
-                return 'askQuery';
-
-            // DESCRIBE
-            case 'des':
-                return 'describeQuery';
-
-            /**
-             * If we land here, we have to use a higher range of characters
-             */
-            default:
-                $firstPart = substr($adaptedQuery, 0, 6);
-
-                switch ($firstPart) {
-                    // CLEAR GRAPH
-                    case 'clear ':
-                        return 'graphQuery';
-
-                    // CREATE GRAPH
-                    // CREATE SILENT GRAPH
-                    case 'create':
-                        return 'graphQuery';
-
-                    // DELETE DATA
-                    case 'delete':
-                        return 'updateQuery';
-
-                    // DROP GRAPH
-                    case 'drop g':
-                        return 'graphQuery';
-
-                    // DROP SILENT GRAPH
-                    case 'drop s':
-                        return 'graphQuery';
-
-                    // INSERT DATA
-                    // INSERT INTO
-                    case 'insert':
-                        return 'updateQuery';
-
-                    // SELECT
-                    case 'select':
-                        return 'selectQuery';
-
-                    default:
-                        // check if query is of type: WITH <http:// ... > DELETE { ... } WHERE { ... }
-                        // TODO make it more precise
-                        if (false !== strpos($adaptedQuery, 'with')
-                            && false !== strpos($adaptedQuery, 'delete')
-                            && false !== strpos($adaptedQuery, 'where')) {
-                            return 'updateQuery';
-
-                        // check if query is of type: WITH <http:// ... > DELETE { ... }
-                        // TODO make it more precise
-                        } elseif (false !== strpos($adaptedQuery, 'with')
-                            && false !== strpos($adaptedQuery, 'delete')) {
-                            return 'updateQuery';
-                        }
-                }
-        }
-
-        throw new \Exception('Unknown query type: '. $firstPart);
     }
 
     /**

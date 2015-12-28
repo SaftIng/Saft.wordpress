@@ -1,8 +1,0 @@
-/doap.rdf
-/docs/api
-/samicache
-/reports
-*.tar.gz
-/vendor
-/composer.phar
-/composer.lock

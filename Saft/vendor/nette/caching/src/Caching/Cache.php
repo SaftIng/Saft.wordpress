@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Caching;
@@ -13,11 +13,8 @@ use Nette\Utils\Callback;
 
 /**
  * Implements the cache for a application.
- *
- * @property-read IStorage $storage
- * @property-read string $namespace
  */
-class Cache extends Nette\Object implements \ArrayAccess
+class Cache extends Nette\Object
 {
 	/** dependency */
 	const PRIORITY = 'priority',
@@ -39,12 +36,6 @@ class Cache extends Nette\Object implements \ArrayAccess
 
 	/** @var string */
 	private $namespace;
-
-	/** @var string  last query cache used by offsetGet() */
-	private $key;
-
-	/** @var mixed  last query cache used by offsetGet()  */
-	private $data;
 
 
 	public function __construct(IStorage $storage, $namespace = NULL)
@@ -123,12 +114,22 @@ class Cache extends Nette\Object implements \ArrayAccess
 	 */
 	public function save($key, $data, array $dependencies = NULL)
 	{
-		$this->key = $this->data = NULL;
 		$key = $this->generateKey($key);
 
 		if ($data instanceof Nette\Callback || $data instanceof \Closure) {
+			if ($data instanceof Nette\Callback) {
+				trigger_error('Nette\Callback is deprecated, use closure or Nette\Utils\Callback::toClosure().', E_USER_DEPRECATED);
+			}
 			$this->storage->lock($key);
-			$data = call_user_func_array($data, [& $dependencies]);
+			try {
+				$data = call_user_func_array($data, [& $dependencies]);
+			} catch (\Throwable $e) {
+				$this->storage->remove($key);
+				throw $e;
+			} catch (\Exception $e) {
+				$this->storage->remove($key);
+				throw $e;
+			}
 		}
 
 		if ($data === NULL) {
@@ -196,7 +197,6 @@ class Cache extends Nette\Object implements \ArrayAccess
 	 */
 	public function clean(array $conditions = NULL)
 	{
-		$this->key = $this->data = NULL;
 		$this->storage->clean((array) $conditions);
 	}
 
@@ -226,15 +226,14 @@ class Cache extends Nette\Object implements \ArrayAccess
 	 */
 	public function wrap($function, array $dependencies = NULL)
 	{
-		$cache = $this;
-		return function () use ($cache, $function, $dependencies) {
+		return function () use ($function, $dependencies) {
 			$key = [$function, func_get_args()];
 			if (is_array($function) && is_object($function[0])) {
 				$key[0][0] = get_class($function[0]);
 			}
-			$data = $cache->load($key);
+			$data = $this->load($key);
 			if ($data === NULL) {
-				$data = $cache->save($key, Callback::invokeArgs($function, $key[1]), $dependencies);
+				$data = $this->save($key, Callback::invokeArgs($function, $key[1]), $dependencies);
 			}
 			return $data;
 		};
@@ -265,65 +264,6 @@ class Cache extends Nette\Object implements \ArrayAccess
 	protected function generateKey($key)
 	{
 		return $this->namespace . md5(is_scalar($key) ? $key : serialize($key));
-	}
-
-
-	/********************* interface ArrayAccess ****************d*g**/
-
-
-	/**
-	 * @deprecated
-	 */
-	public function offsetSet($key, $data)
-	{
-		trigger_error('Using [] is deprecated; use Cache::save(key, data) instead.', E_USER_DEPRECATED);
-		$this->save($key, $data);
-	}
-
-
-	/**
-	 * @deprecated
-	 */
-	public function offsetGet($key)
-	{
-		trigger_error('Using [] is deprecated; use Cache::load(key) instead.', E_USER_DEPRECATED);
-		$key = is_scalar($key) ? (string) $key : serialize($key);
-		if ($this->key !== $key) {
-			$this->key = $key;
-			$this->data = $this->load($key);
-		}
-		return $this->data;
-	}
-
-
-	/**
-	 * @deprecated
-	 */
-	public function offsetExists($key)
-	{
-		trigger_error('Using [] is deprecated; use Cache::load(key) !== NULL instead.', E_USER_DEPRECATED);
-		$this->key = $this->data = NULL;
-		return $this->offsetGet($key) !== NULL;
-	}
-
-
-	/**
-	 * @deprecated
-	 */
-	public function offsetUnset($key)
-	{
-		trigger_error('Using [] is deprecated; use Cache::remove(key) instead.', E_USER_DEPRECATED);
-		$this->save($key, NULL);
-	}
-
-
-	/**
-	 * @deprecated
-	 */
-	public function release()
-	{
-		trigger_error(__METHOD__ . '() is deprecated.', E_USER_DEPRECATED);
-		$this->key = $this->data = NULL;
 	}
 
 

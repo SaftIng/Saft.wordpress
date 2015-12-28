@@ -11,4 +11,5 @@ return array(
     'Saft\\' => array($vendorDir . '/saft/saft/src/Saft', $vendorDir . '/saft/saft/src/Saft'),
     'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-message/src'),
     'EasyRdf\\' => array($vendorDir . '/easyrdf/easyrdf/lib'),
+    'Curl\\' => array($vendorDir . '/php-curl-class/php-curl-class/src/Curl'),
 );

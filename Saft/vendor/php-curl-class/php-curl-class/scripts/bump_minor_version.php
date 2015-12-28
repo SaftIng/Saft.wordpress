@@ -3,16 +3,11 @@
 require dirname(__FILE__) . '/../src/Curl/Curl.php';
 
 $current_version = Curl\Curl::VERSION;
-list($major, $minor, $patch) = explode('.', $current_version);
-$new_version = implode('.', array($major, (string)((int)$minor += 1), $patch));
+list($major, $minor, $_) = explode('.', $current_version);
+$new_version = implode('.', array($major, (string)((int)$minor += 1), '0'));
 
 foreach(
     array(
-        array(
-            dirname(__FILE__) . '/../composer.json',
-            '/"version": "(?:\d+.\d+.\d+)"/',
-            '"version": "' . $new_version . '"',
-        ),
         array(
             dirname(__FILE__) . '/../src/Curl/Curl.php',
             '/const VERSION = \'(?:\d+.\d+.\d+)\';/',

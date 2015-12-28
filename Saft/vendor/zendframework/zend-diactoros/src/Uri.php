@@ -220,6 +220,14 @@ class Uri implements UriInterface
      */
     public function withScheme($scheme)
     {
+        if (! is_string($scheme)) {
+            throw new InvalidArgumentException(sprintf(
+                '%s expects a string argument; received %s',
+                __METHOD__,
+                (is_object($scheme) ? get_class($scheme) : gettype($scheme))
+            ));
+        }
+
         $scheme = $this->filterScheme($scheme);
 
         if ($scheme === $this->scheme) {
@@ -238,6 +246,21 @@ class Uri implements UriInterface
      */
     public function withUserInfo($user, $password = null)
     {
+        if (! is_string($user)) {
+            throw new InvalidArgumentException(sprintf(
+                '%s expects a string user argument; received %s',
+                __METHOD__,
+                (is_object($user) ? get_class($user) : gettype($user))
+            ));
+        }
+        if (null !== $password && ! is_string($password)) {
+            throw new InvalidArgumentException(sprintf(
+                '%s expects a string password argument; received %s',
+                __METHOD__,
+                (is_object($password) ? get_class($password) : gettype($password))
+            ));
+        }
+
         $info = $user;
         if ($password) {
             $info .= ':' . $password;
@@ -259,6 +282,14 @@ class Uri implements UriInterface
      */
     public function withHost($host)
     {
+        if (! is_string($host)) {
+            throw new InvalidArgumentException(sprintf(
+                '%s expects a string argument; received %s',
+                __METHOD__,
+                (is_object($host) ? get_class($host) : gettype($host))
+            ));
+        }
+
         if ($host === $this->host) {
             // Do nothing if no change was made.
             return clone $this;
@@ -275,21 +306,23 @@ class Uri implements UriInterface
      */
     public function withPort($port)
     {
-        if (! is_numeric($port)) {
+        if (! is_numeric($port) && $port !== null) {
             throw new InvalidArgumentException(sprintf(
-                'Invalid port "%s" specified; must be an integer or integer string',
+                'Invalid port "%s" specified; must be an integer, an integer string, or null',
                 (is_object($port) ? get_class($port) : gettype($port))
             ));
         }
 
-        $port = (int) $port;
+        if ($port !== null) {
+            $port = (int) $port;
+        }
 
         if ($port === $this->port) {
             // Do nothing if no change was made.
             return clone $this;
         }
 
-        if ($port < 1 || $port > 65535) {
+        if ($port !== null && $port < 1 || $port > 65535) {
             throw new InvalidArgumentException(sprintf(
                 'Invalid port "%d" specified; must be a valid TCP/UDP port',
                 $port
@@ -373,6 +406,14 @@ class Uri implements UriInterface
      */
     public function withFragment($fragment)
     {
+        if (! is_string($fragment)) {
+            throw new InvalidArgumentException(sprintf(
+                '%s expects a string argument; received %s',
+                __METHOD__,
+                (is_object($fragment) ? get_class($fragment) : gettype($fragment))
+            ));
+        }
+
         $fragment = $this->filterFragment($fragment);
 
         if ($fragment === $this->fragment) {
@@ -585,10 +626,6 @@ class Uri implements UriInterface
      */
     private function filterFragment($fragment)
     {
-        if (null === $fragment) {
-            $fragment = '';
-        }
-
         if (! empty($fragment) && strpos($fragment, '#') === 0) {
             $fragment = substr($fragment, 1);
         }

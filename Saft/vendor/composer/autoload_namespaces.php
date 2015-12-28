@@ -6,5 +6,6 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Zend_' => array($vendorDir . '/zendframework/zendframework1/library'),
     'Slim' => array($vendorDir . '/slim/slim'),
 );

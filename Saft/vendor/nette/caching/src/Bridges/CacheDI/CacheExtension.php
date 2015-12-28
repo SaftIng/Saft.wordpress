@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Bridges\CacheDI;
@@ -30,12 +30,12 @@ class CacheExtension extends Nette\DI\CompilerExtension
 		$container = $this->getContainerBuilder();
 
 		$container->addDefinition($this->prefix('journal'))
-			->setClass('Nette\Caching\Storages\IJournal')
-			->setFactory('Nette\Caching\Storages\SQLiteJournal', [$this->tempDir . '/cache/journal.s3db']);
+			->setClass(Nette\Caching\Storages\IJournal::class)
+			->setFactory(Nette\Caching\Storages\SQLiteJournal::class, [$this->tempDir . '/cache/journal.s3db']);
 
 		$container->addDefinition($this->prefix('storage'))
-			->setClass('Nette\Caching\IStorage')
-			->setFactory('Nette\Caching\Storages\FileStorage', [$this->tempDir . '/cache']);
+			->setClass(Nette\Caching\IStorage::class)
+			->setFactory(Nette\Caching\Storages\FileStorage::class, [$this->tempDir . '/cache']);
 
 		if ($this->name === 'cache') {
 			$container->addAlias('nette.cacheJournal', $this->prefix('journal'));

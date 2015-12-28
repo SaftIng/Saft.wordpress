@@ -1,0 +1,8 @@
+To start test cases you need to install PHPUnit 3.2 first.
+
+From the tests directory launch PHPUnit with the test you want to perform.
+To test Rdf_Model for instance type:
+    phpunit Erfurt_Rdf_ModelTest
+
+To test the complete suite:
+    phpunit Erfurt_TestSuite

@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Utils;
@@ -45,8 +45,8 @@ class Callback
 
 		self::check($callable);
 		$_callable_ = $callable;
-		return function () use ($_callable_) {
-			return call_user_func_array($_callable_, func_get_args());
+		return function (...$args) use ($_callable_) {
+			return $_callable_(...$args);
 		};
 	}
 
@@ -55,10 +55,10 @@ class Callback
 	 * Invokes callback.
 	 * @return mixed
 	 */
-	public static function invoke($callable)
+	public static function invoke($callable, ...$args)
 	{
 		self::check($callable);
-		return call_user_func_array($callable, array_slice(func_get_args(), 1));
+		return call_user_func_array($callable, $args);
 	}
 
 
@@ -84,19 +84,23 @@ class Callback
 			if ($file === '' && defined('HHVM_VERSION')) { // https://github.com/facebook/hhvm/issues/4625
 				$file = func_get_arg(5)[1]['file'];
 			}
-			if ($file === __FILE__ && $onError(str_replace("$function(): ", '', $message), $severity) !== FALSE) {
-				return;
-			} elseif ($prev) {
-				return call_user_func_array($prev, func_get_args());
+			if ($file === __FILE__) {
+				$msg = preg_replace("#^$function\(.*?\): #", '', $message);
+				if ($onError($msg, $severity) !== FALSE) {
+					return;
+				}
 			}
-			return FALSE;
+			return $prev ? $prev(...func_get_args()) : FALSE;
 		});
 
 		try {
-			$res = call_user_func_array($function, $args);
+			$res = $function(...$args);
 			restore_error_handler();
 			return $res;
 
+		} catch (\Throwable $e) {
+			restore_error_handler();
+			throw $e;
 		} catch (\Exception $e) {
 			restore_error_handler();
 			throw $e;
@@ -144,10 +148,11 @@ class Callback
 		if ($callable instanceof \Closure) {
 			$callable = self::unwrap($callable);
 		} elseif ($callable instanceof Nette\Callback) {
+			trigger_error('Nette\Callback is deprecated.', E_USER_DEPRECATED);
 			$callable = $callable->getNative();
 		}
 
-		$class = class_exists('Nette\Reflection\Method') ? 'Nette\Reflection\Method' : 'ReflectionMethod';
+		$class = class_exists(Nette\Reflection\Method::class) ? Nette\Reflection\Method::class : 'ReflectionMethod';
 		if (is_string($callable) && strpos($callable, '::')) {
 			return new $class($callable);
 		} elseif (is_array($callable)) {
@@ -155,7 +160,7 @@ class Callback
 		} elseif (is_object($callable) && !$callable instanceof \Closure) {
 			return new $class($callable, '__invoke');
 		} else {
-			$class = class_exists('Nette\Reflection\GlobalFunction') ? 'Nette\Reflection\GlobalFunction' : 'ReflectionFunction';
+			$class = class_exists(Nette\Reflection\GlobalFunction::class) ? Nette\Reflection\GlobalFunction::class : 'ReflectionFunction';
 			return new $class($callable);
 		}
 	}

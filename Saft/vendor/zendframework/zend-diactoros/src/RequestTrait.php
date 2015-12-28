@@ -82,7 +82,7 @@ trait RequestTrait
 
         $this->method = $method ?: '';
         $this->uri    = $uri ?: new Uri();
-        $this->stream = ($body instanceof StreamInterface) ? $body : new Stream($body, 'r');
+        $this->stream = ($body instanceof StreamInterface) ? $body : new Stream($body, 'wb+');
 
         list($this->headerNames, $headers) = $this->filterHeaders($headers);
         $this->assertHeaders($headers);
@@ -249,6 +249,16 @@ trait RequestTrait
         }
 
         $new->headerNames['host'] = 'Host';
+
+        // Remove an existing host header if present, regardless of current
+        // de-normalization of the header name.
+        // @see https://github.com/zendframework/zend-diactoros/issues/91
+        foreach (array_keys($new->headers) as $header) {
+            if (strtolower($header) === 'host') {
+                unset($new->headers[$header]);
+            }
+        }
+
         $new->headers['Host'] = [$host];
 
         return $new;

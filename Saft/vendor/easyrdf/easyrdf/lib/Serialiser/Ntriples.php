@@ -129,7 +129,7 @@ class Ntriples extends Serialiser
         } elseif ($no < 92) {
             return $c;                            /* #x23-#x5B (35-91) */
         } elseif ($no == 92) {
-            return '\\';                          /* #x5C (92) */
+            return '\\\\'; // double backslash    /* #x5C (92) */
         } elseif ($no < 127) {
             return $c;                            /* #x5D-#x7E (93-126) */
         } elseif ($no < 65536) {
@@ -192,20 +192,20 @@ class Ntriples extends Serialiser
         }
     }
 
+
     /**
      * Serialise an EasyRdf\Graph into N-Triples
      *
-     * @param Graph  $graph   An EasyRdf\Graph object.
-     * @param string $format  The name of the format to convert to.
+     * @param Graph  $graph  An EasyRdf\Graph object.
+     * @param string $format The name of the format to convert to.
      * @param array  $options
      *
-     * @throws Exception
-     *
      * @return string The RDF in the new desired format.
+     * @throws Exception
      */
-    public function serialise($graph, $format, array $options = array())
+    public function serialise(Graph $graph, $format, array $options = array())
     {
-        parent::checkSerialiseParams($graph, $format);
+        parent::checkSerialiseParams($format);
 
         if ($format == 'ntriples') {
             $nt = '';

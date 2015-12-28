@@ -13,6 +13,7 @@ use Saft\Rdf\NodeFactory;
 use Saft\Rdf\NodeUtils;
 use Saft\Sparql\Query\AbstractQuery;
 use Saft\Sparql\Query\QueryFactory;
+use Saft\Sparql\Query\QueryUtils;
 use Saft\Sparql\Result\ResultFactory;
 use Saft\Store\AbstractSparqlStore;
 use Saft\Store\Store;
@@ -51,6 +52,11 @@ class Http extends AbstractSparqlStore
     private $queryFactory;
 
     /**
+     * @var QueryUtils
+     */
+    protected $queryUtils;
+
+    /**
      * @var ResultFactory
      */
     private $resultFactory;
@@ -85,6 +91,7 @@ class Http extends AbstractSparqlStore
         array $configuration
     ) {
         $this->nodeUtils = new NodeUtils();
+        $this->queryUtils = new QueryUtils();
 
         $this->configuration = $configuration;
 
@@ -310,8 +317,16 @@ class Http extends AbstractSparqlStore
         /**
          * SPARQL query (usually to fetch data)
          */
-        if ('selectQuery' == AbstractQuery::getQueryType($query)) {
-            $resultArray = json_decode($this->client->sendSparqlSelectQuery($query), true);
+        if ('selectQuery' == $this->queryUtils->getQueryType($query)) {
+            $receivedResult = $this->client->sendSparqlSelectQuery($query);
+            // transform object to array
+            if (is_object($receivedResult)) {
+                $resultArray = json_decode(json_encode($receivedResult), true);
+            // transform json string to array
+            } else {
+                $resultArray = json_decode($receivedResult, true);
+            }
+
             $entries = array();
 
             /**
@@ -337,6 +352,13 @@ class Http extends AbstractSparqlStore
                  * )
                  */
                 foreach ($bindingParts as $variable => $part) {
+                    // it seems that for instance Virtuoso returns type=literal for bnodes,
+                    // so we manually fix that here to avoid that problem if other stores act
+                    // the same
+                    if (false !== strpos($part['value'], '_:')) {
+                        $part['type'] = 'bnode';
+                    }
+
                     switch ($part['type']) {
                         /**
                          * Literal (language'd)
@@ -396,17 +418,21 @@ class Http extends AbstractSparqlStore
          * SPARPQL Update query
          */
         } else {
-            $result = $this->client->sendSparqlUpdateQuery($query);
-            $decodedResult = json_decode($result, true);
+            $receivedResult = $this->client->sendSparqlUpdateQuery($query);
+            // transform object to array
+            if (is_object($receivedResult)) {
+                $decodedResult = json_decode(json_encode($receivedResult), true);
+            // transform json string to array
+            } else {
+                $decodedResult = json_decode($receivedResult, true);
+            }
 
-            if ('askQuery' === AbstractQuery::getQueryType($query)) {
-                $askResult = json_decode($result, true);
-
-                if (true === isset($askResult['boolean'])) {
-                    $return = $this->resultFactory->createValueResult($askResult['boolean']);
+            if ('askQuery' === $this->queryUtils->getQueryType($query)) {
+                if (true === isset($decodedResult['boolean'])) {
+                    $return = $this->resultFactory->createValueResult($decodedResult['boolean']);
 
                 // assumption here is, if a string was returned, something went wrong.
-                } elseif (0 < strlen($result)) {
+                } elseif (0 < strlen($receivedResult)) {
                     throw new \Exception($result);
 
                 } else {
@@ -414,8 +440,8 @@ class Http extends AbstractSparqlStore
                 }
 
             // usually a SPARQL result does not return a string. if it does anyway, assume there is an error.
-            } elseif (null === $decodedResult && 0 < strlen($result)) {
-                throw new \Exception($result);
+            } elseif (null === $decodedResult && 0 < strlen($receivedResult)) {
+                throw new \Exception($receivedResult);
 
             } else {
                 $return = $this->resultFactory->createEmptyResult();

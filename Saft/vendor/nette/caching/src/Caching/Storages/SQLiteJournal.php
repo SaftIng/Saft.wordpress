@@ -1,8 +1,8 @@
 <?php
 
 /**
- * This file is part of the Nette Framework (http://nette.org)
- * Copyright (c) 2004 David Grudl (http://davidgrudl.com)
+ * This file is part of the Nette Framework (https://nette.org)
+ * Copyright (c) 2004 David Grudl (https://davidgrudl.com)
  */
 
 namespace Nette\Caching\Storages;
@@ -23,16 +23,17 @@ class SQLiteJournal extends Nette\Object implements IJournal
 	/**
 	 * @param  string
 	 */
-	public function __construct($path = ':memory:')
+	public function __construct($path)
 	{
 		if (!extension_loaded('pdo_sqlite')) {
 			throw new Nette\NotSupportedException('SQLiteJournal requires PHP extension pdo_sqlite which is not loaded.');
 		}
 
-		$this->pdo = new \PDO('sqlite:' . $path, NULL, NULL, [\PDO::ATTR_PERSISTENT => TRUE]);
+		$this->pdo = new \PDO('sqlite:' . $path);
 		$this->pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 		$this->pdo->exec('
-			PRAGMA foreign_keys = ON;
+			PRAGMA foreign_keys = OFF;
+			PRAGMA journal_mode = WAL;
 			CREATE TABLE IF NOT EXISTS tags (
 				key BLOB NOT NULL,
 				tag BLOB NOT NULL
@@ -41,10 +42,9 @@ class SQLiteJournal extends Nette\Object implements IJournal
 				key BLOB NOT NULL,
 				priority INT NOT NULL
 			);
-			CREATE INDEX IF NOT EXISTS idx_tags_key ON tags(key);
 			CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
 			CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_key_tag ON tags(key, tag);
-			CREATE INDEX IF NOT EXISTS idx_priorities_key ON priorities(key);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_priorities_key ON priorities(key);
 			CREATE INDEX IF NOT EXISTS idx_priorities_priority ON priorities(priority);
 		');
 	}
@@ -116,17 +116,21 @@ class SQLiteJournal extends Nette\Object implements IJournal
 			return [];
 		}
 
-		$stmt = $this->pdo->prepare(implode(' UNION ', $unions));
+		$unionSql = implode(' UNION ', $unions);
+
+		$this->pdo->exec('BEGIN IMMEDIATE');
+
+		$stmt = $this->pdo->prepare($unionSql);
 		$stmt->execute($args);
 		$keys = $stmt->fetchAll(\PDO::FETCH_COLUMN, 0);
+
 		if (empty($keys)) {
+			$this->pdo->exec('COMMIT');
 			return [];
 		}
 
-		$in = '(?' . str_repeat(', ?', count($keys) - 1) . ')';
-		$this->pdo->exec('BEGIN');
-		$this->pdo->prepare("DELETE FROM tags WHERE key IN $in")->execute($keys);
-		$this->pdo->prepare("DELETE FROM priorities WHERE key IN $in")->execute($keys);
+		$this->pdo->prepare("DELETE FROM tags WHERE key IN ($unionSql)")->execute($args);
+		$this->pdo->prepare("DELETE FROM priorities WHERE key IN ($unionSql)")->execute($args);
 		$this->pdo->exec('COMMIT');
 
 		return $keys;
