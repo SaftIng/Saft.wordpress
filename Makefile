@@ -22,10 +22,15 @@ update:
 
 	@echo ""
 	@echo "> Remove obsolete files from subfolders"
+	cd Saft && rm `find ./ -type f -name '*.bin'` -rf
+	cd Saft && rm `find ./ -type f -name '*.css'` -rf
+	cd Saft && rm `find ./ -type f -name '*.csv'` -rf
 	cd Saft && rm `find ./ -type f -name '*.dist'` -rf
 	cd Saft && rm `find ./ -type f -name '*.gif'` -rf
+	cd Saft && rm `find ./ -type f -name '.gitignore'` -rf
 	cd Saft && rm `find ./ -type f -name '*.html'` -rf
 	cd Saft && rm `find ./ -type f -name '*.ini'` -rf
+	cd Saft && rm `find ./ -type f -name '*.jpg'` -rf
 	cd Saft && rm `find ./ -type f -name '*.js'` -rf
 	cd Saft && rm `find ./ -type f -name '*.json'` -rf
 	cd Saft && rm `find ./ -type f -name '*.md'` -rf
@@ -33,10 +38,15 @@ update:
 	cd Saft && rm `find ./ -type f -name '*.out'` -rf
 	cd Saft && rm `find ./ -type f -name '*Test.php'` -rf
 	cd Saft && rm `find ./ -type f -name '*.phpt'` -rf
+	cd Saft && rm `find ./ -type f -name '*.png'` -rf
+	cd Saft && rm `find ./ -type f -name '*.rar'` -rf
+	cd Saft && rm `find ./ -type f -name '*.response'` -rf
 	cd Saft && rm `find ./ -type f -name '*.tiff'` -rf
 	cd Saft && rm `find ./ -type f -name '*.ttl'` -rf
 	cd Saft && rm `find ./ -type f -name '*.txt'` -rf
+	cd Saft && rm `find ./ -type f -name '*.TXT'` -rf
 	cd Saft && rm `find ./ -type f -name '*.xhtml'` -rf
 	cd Saft && rm `find ./ -type f -name '*.xml'` -rf
 	cd Saft && rm `find ./ -type f -name '*.xsl'` -rf
+	cd Saft && rm `find ./ -type f -name '*.yaml'` -rf
 	cd Saft && rm `find ./ -type f -name '*.yml'` -rf
