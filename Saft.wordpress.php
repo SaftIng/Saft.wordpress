@@ -10,5 +10,34 @@
  * License:     GPL3
  */
 
-// include autoloaders for Saft and required vendors
+use Saft\Addition\ARC2\Store\ARC2;
+use Saft\Rdf\NamedNodeImpl;
+use Saft\Rdf\NodeFactoryImpl;
+use Saft\Rdf\StatementFactoryImpl;
+use Saft\Rdf\StatementImpl;
+use Saft\Rdf\StatementIteratorFactoryImpl;
+use Saft\Sparql\Query\QueryFactoryImpl;
+use Saft\Sparql\Result\ResultFactoryImpl;
+
+// include autoloaders for Saft and related vendors
 require_once __DIR__ .'/Saft/vendor/autoload.php';
+
+/*
+ * Initialize ARC2-instance and set it up, so that it can use current WordPress
+ * database to store its tables.
+ */
+global $saftdb, $wpdb;
+$saftdb = new ARC2(
+    new NodeFactoryImpl(),
+    new StatementFactoryImpl(),
+    new QueryFactoryImpl(),
+    new ResultFactoryImpl(),
+    new StatementIteratorFactoryImpl(),
+    array(
+        'username'      => $wpdb->dbuser,
+        'password'      => $wpdb->dbpassword,
+        'host'          => $wpdb->dbhost,
+        'database'      => $wpdb->dbname,
+        'table-prefix'  => 'saft_', // prefix of ARC2/Saft related tables
+    )
+);

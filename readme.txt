@@ -2,8 +2,8 @@
 Contributors: k00ni
 Tags: rdf, sparql, virtuoso, owl, graph, saft
 Requires at least: 4.0
-Tested up to: 4.4
-Stable tag: 4.4
+Tested up to: 4.4.1
+Stable tag: 4.4.1
 License: GPLv3 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -27,7 +27,5 @@ This section describes how to install the plugin and get it working.
 
 = What exactly contains this plugin of the Saft collection? =
 
-- Saft 
+- Saft
 - Saft.skeleton
-
-
