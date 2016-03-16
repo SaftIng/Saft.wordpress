@@ -48,17 +48,29 @@ commit:
 mrpropper: clean
 	rm -r ./vendor
 
+# Remove all remotes for Saft's subtree repositories.
+remove-subtrees:
+	git remote rm saft.data
+	git remote rm saft.easyrdf
+	git remote rm saft.querycache
+	git remote rm saft.rdf
+	git remote rm saft.redland
+	git remote rm saft.sparql
+	git remote rm saft.store
+	git remote rm saft.store.http
+	git remote rm saft.store.virtuoso
+
 # Setup all remotes for Saft's subtree repositories.
 setup-subtrees:
-	- git remote add saft.data git@github.com:SaftIng/Saft.data
-	- git remote add saft.easyrdf git@github.com:SaftIng/Saft.easyrdf
-	- git remote add saft.querycache git@github.com:SaftIng/Saft.querycache
-	- git remote add saft.rdf git@github.com:SaftIng/Saft.rdf
-	- git remote add saft.redland git@github.com:SaftIng/Saft.redland
-	- git remote add saft.sparql git@github.com:SaftIng/Saft.sparql
-	- git remote add saft.store git@github.com:SaftIng/Saft.store
-	- git remote add saft.store.http git@github.com:SaftIng/Saft.store.http
-	- git remote add saft.store.virtuoso git@github.com:SaftIng/Saft.store.virtuoso
+	git remote add saft.data git@github.com:SaftIng/Saft.data
+	git remote add saft.easyrdf git@github.com:SaftIng/Saft.easyrdf
+	git remote add saft.querycache git@github.com:SaftIng/Saft.querycache
+	git remote add saft.rdf git@github.com:SaftIng/Saft.rdf
+	git remote add saft.redland git@github.com:SaftIng/Saft.redland
+	git remote add saft.sparql git@github.com:SaftIng/Saft.sparql
+	git remote add saft.store git@github.com:SaftIng/Saft.store
+	git remote add saft.store.http git@github.com:SaftIng/Saft.store.http
+	git remote add saft.store.virtuoso git@github.com:SaftIng/Saft.store.virtuoso
 
 # TODO change this somehow to a loop
 split-subtrees:
@@ -74,12 +86,12 @@ split-subtrees:
 
 # After the call of make split-subtrees, that command pushes all the new changes to the according remotes.
 push-subtrees:
-	git push saft.data saft.data:master
-	git push saft.easyrdf saft.easyrdf:master
-	git push saft.querycache saft.querycache:master
-	git push saft.rdf saft.rdf:master
-	git push saft.redland saft.redland:master
-	git push saft.sparql saft.sparql:master
-	git push saft.store saft.store:master
-	git push saft.store.http saft.store.http:master
-	git push saft.store.virtuoso saft.store.virtuoso:master
+	git push saft.data saft.data:master --tags
+	git push saft.easyrdf saft.easyrdf:master --tags
+	git push saft.querycache saft.querycache:master --tags
+	git push saft.rdf saft.rdf:master --tags
+	git push saft.redland saft.redland:master --tags
+	git push saft.sparql saft.sparql:master --tags
+	git push saft.store saft.store:master --tags
+	git push saft.store.http saft.store.http:master --tags
+	git push saft.store.virtuoso saft.store.virtuoso:master --tags

@@ -7,5 +7,7 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Zend_' => array($vendorDir . '/zendframework/zendframework1/library'),
-    'Slim' => array($vendorDir . '/slim/slim'),
+    'Psr\\Log\\' => array($vendorDir . '/psr/log'),
+    'Pimple' => array($vendorDir . '/pimple/pimple/src'),
+    'EasyRdf_' => array($vendorDir . '/easyrdf/easyrdf/lib'),
 );

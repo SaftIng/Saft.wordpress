@@ -2,8 +2,6 @@
 
 namespace Saft\Addition\EasyRdf\Data;
 
-use EasyRdf\Format;
-use EasyRdf\Graph;
 use Saft\Data\Parser;
 use Saft\Rdf\ArrayStatementIteratorImpl;
 use Saft\Rdf\NodeFactory;
@@ -23,6 +21,11 @@ class ParserEasyRdf implements Parser
     private $serialization;
 
     /**
+     * @var array
+     */
+    protected $serializationMap;
+
+    /**
      * @var StatementFactory
      */
     private $statementFactory;
@@ -33,6 +36,7 @@ class ParserEasyRdf implements Parser
      * @param NodeFactory      $nodeFactory
      * @param StatementFactory $statementFactory
      * @param string           $serialization
+     * @throws \Exception if serialization is unknown.
      */
     public function __construct(NodeFactory $nodeFactory, StatementFactory $statementFactory, $serialization)
     {
@@ -40,7 +44,23 @@ class ParserEasyRdf implements Parser
 
         $this->nodeFactory = $nodeFactory;
         $this->statementFactory = $statementFactory;
-        $this->serialization = $serialization;
+
+        $this->serializationMap = array(
+            'n-triples' => 'ntriples',
+            'rdf-json' => 'json',
+            'rdf-xml' => 'rdfxml',
+            'rdfa' => 'rdfa',
+            'turtle' => 'turtle',
+        );
+
+        $this->serialization = $this->serializationMap[$serialization];
+
+        if (false == isset($this->serializationMap[$serialization])) {
+            throw new \Exception(
+                'Unknown serialization format given: '. $serialization .'. Supported are only '.
+                implode(', ', array_keys($this->serializationMap))
+            );
+        }
     }
 
     /**
@@ -72,7 +92,7 @@ class ParserEasyRdf implements Parser
             throw new \Exception('Parameter $baseUri is not a valid URI.');
         }
 
-        $graph = new Graph();
+        $graph = new \EasyRdf_Graph();
         $graph->parse($inputString, $this->serialization, $baseUri);
 
         // transform parsed data to PHP array
@@ -96,7 +116,7 @@ class ParserEasyRdf implements Parser
             throw new \Exception('Parameter $baseUri is not a valid URI.');
         }
 
-        $graph = new Graph();
+        $graph = new \EasyRdf_Graph();
         $graph->parseFile($inputStream, $this->serialization);
 
         // transform parsed data to PHP array

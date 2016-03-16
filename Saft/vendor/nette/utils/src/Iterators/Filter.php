@@ -12,7 +12,6 @@ use Nette;
 
 /**
  * CallbackFilterIterator for PHP < 5.4.
- * @deprecated use CallbackFilterIterator
  */
 class Filter extends \FilterIterator
 {
@@ -22,7 +21,6 @@ class Filter extends \FilterIterator
 
 	public function __construct(\Iterator $iterator, $callback)
 	{
-		trigger_error(__CLASS__ . ' is deprecated, use CallbackFilterIterator.', E_USER_WARNING);
 		parent::__construct($iterator);
 		$this->callback = Nette\Utils\Callback::check($callback);
 	}

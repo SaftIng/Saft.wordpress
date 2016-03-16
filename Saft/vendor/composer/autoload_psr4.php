@@ -7,10 +7,13 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Zend\\Diactoros\\' => array($vendorDir . '/zendframework/zend-diactoros/src'),
+    'Slim\\' => array($vendorDir . '/slim/slim/Slim'),
     'Saft\\Skeleton\\' => array($vendorDir . '/saft/saft-skeleton/src/Saft/Skeleton', $vendorDir . '/saft/saft-skeleton/src/Saft/Skeleton'),
     'Saft\\' => array($vendorDir . '/saft/saft/src/Saft', $vendorDir . '/saft/saft/src/Saft'),
     'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-message/src'),
-    'EasyRdf\\' => array($vendorDir . '/easyrdf/easyrdf/lib'),
+    'Interop\\Container\\' => array($vendorDir . '/container-interop/container-interop/src/Interop/Container'),
+    'FastRoute\\' => array($vendorDir . '/nikic/fast-route/src'),
+    'Elastica\\' => array($vendorDir . '/ruflin/elastica/lib/Elastica'),
     'Dice\\' => array($vendorDir . '/level-2/dice'),
     'Curl\\' => array($vendorDir . '/php-curl-class/php-curl-class/src/Curl'),
 );

@@ -18,7 +18,7 @@ use Slim\Slim;
  * {@url http://www.w3.org/TR/2013/REC-sparql11-http-rdf-update-20130321/}
  *
  * It is documented at {@url http://safting.github.io/doc/restinterface/triplestore/}
- * ?query=:query&… : Store->query($query, $options[…]);
+ * ?query=:query&... : Store->query($query, $options[...]);
  * ?action=:action
  * ?s=:s&p=:p&o=:o&graph=:g : Store->getMatchingStatements($s, $p, $o, $g, $options[…]);
  */
@@ -75,22 +75,7 @@ class Application
                 }
             }
 
-            // ob_start();
-            //try {
-                $return = call_user_func_array([$this, $callAction], $callParameters);
-            /*
-            } catch (\Exception $e) {
-                $ob = ob_get_flush();
-                if (isset($return)) {
-                    $payload = $return;
-                }
-                $return = ['exception' => $e->getMessage(), 'output_buffer' => $ob];
-                if (isset($payload)) {
-                    $return['payload'] = $payload;
-                }
-            }
-             */
-            // ob_clean();
+            $return = call_user_func_array([$this, $callAction], $callParameters);
 
             echo $this->serializeResult($return, $app);
         })->via('GET', 'POST', 'PUT');
@@ -101,11 +86,9 @@ class Application
     {
         $acceptHeader = $app->request->headers->get('Accept');
         if ($result instanceof \Saft\Rdf\StatementIterator) {
-            //$acceptType;
             // TODO set correct mime type
             $serializer = $this->serf->createSerializerFor('ntriples');
             $app->response->headers->set('Content-Type', 'application/n-triple');
-            //$app->response->headers->set('Content-Type', 'application/n-quads');
             $serializer->serializeIteratorToStream($result, 'php://output', 'ntriples');
             return;
         } elseif ($result instanceof \Saft\Sparql\Result) {

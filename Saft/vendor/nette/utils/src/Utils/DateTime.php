@@ -13,19 +13,19 @@ use Nette;
 /**
  * DateTime.
  */
-class DateTime extends \DateTime implements \JsonSerializable
+class DateTime extends \DateTime
 {
 	/** minute in seconds */
 	const MINUTE = 60;
 
 	/** hour in seconds */
-	const HOUR = 60 * self::MINUTE;
+	const HOUR = 3600;
 
 	/** day in seconds */
-	const DAY = 24 * self::HOUR;
+	const DAY = 86400;
 
 	/** week in seconds */
-	const WEEK = 7 * self::DAY;
+	const WEEK = 604800;
 
 	/** average month in seconds */
 	const MONTH = 2629800;
@@ -36,19 +36,20 @@ class DateTime extends \DateTime implements \JsonSerializable
 
 	/**
 	 * DateTime object factory.
-	 * @param  string|int|\DateTimeInterface
+	 * @param  string|int|\DateTime
 	 * @return self
 	 */
 	public static function from($time)
 	{
-		if ($time instanceof \DateTimeInterface) {
+		if ($time instanceof \DateTime || $time instanceof \DateTimeInterface) {
 			return new static($time->format('Y-m-d H:i:s'), $time->getTimezone());
 
 		} elseif (is_numeric($time)) {
 			if ($time <= self::YEAR) {
 				$time += time();
 			}
-			return (new static('@' . $time))->setTimeZone(new \DateTimeZone(date_default_timezone_get()));
+			$tmp = new static('@' . $time);
+			return $tmp->setTimeZone(new \DateTimeZone(date_default_timezone_get()));
 
 		} else { // textual or NULL
 			return new static($time);
@@ -119,16 +120,6 @@ class DateTime extends \DateTime implements \JsonSerializable
 
 		$date = parent::createFromFormat($format, $time, $timezone);
 		return $date ? static::from($date) : FALSE;
-	}
-
-
-	/**
-	 * Returns JSON representation in ISO 8601 (used by JavaScript).
-	 * @return string
-	 */
-	public function jsonSerialize()
-	{
-		return $this->format('c');
 	}
 
 }

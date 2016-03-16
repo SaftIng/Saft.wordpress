@@ -98,7 +98,7 @@ class Dice {
 			else return $this->create($param['instance'], $share);
 		}
 		//Recursively search for 'instance' keys in $param
-		else if (is_array($param)) foreach ($param as $name => $value) $param[$name] = $this->expand($value, $share);
+		else if (is_array($param)) foreach ($param as &$value) $value = $this->expand($value, $share); 	
 		//'instance' wasn't found, return the value unchanged
 		return is_string($param) && $createFromString ? $this->create($param) : $param;
 	}

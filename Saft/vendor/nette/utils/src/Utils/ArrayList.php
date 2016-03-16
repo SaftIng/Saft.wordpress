@@ -15,7 +15,7 @@ use Nette;
  */
 class ArrayList extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAggregate
 {
-	private $list = [];
+	private $list = array();
 
 
 	/**
@@ -97,17 +97,6 @@ class ArrayList extends Nette\Object implements \ArrayAccess, \Countable, \Itera
 			throw new Nette\OutOfRangeException('Offset invalid or out of range');
 		}
 		array_splice($this->list, (int) $index, 1);
-	}
-
-
-	/**
-	 * Prepends a item.
-	 * @param  mixed
-	 * @return void
-	 */
-	public function prepend($value)
-	{
-		array_unshift($this->list, $value);
 	}
 
 }

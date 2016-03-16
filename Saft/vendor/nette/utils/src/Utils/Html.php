@@ -30,20 +30,20 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 	private $isEmpty;
 
 	/** @var array  element's attributes */
-	public $attrs = [];
+	public $attrs = array();
 
 	/** @var array  of Html | string nodes */
-	protected $children = [];
+	protected $children = array();
 
 	/** @var bool  use XHTML syntax? */
 	public static $xhtml = FALSE;
 
 	/** @var array  empty (void) elements */
-	public static $emptyElements = [
+	public static $emptyElements = array(
 		'img' => 1, 'hr' => 1, 'br' => 1, 'input' => 1, 'meta' => 1, 'area' => 1, 'embed' => 1, 'keygen' => 1,
 		'source' => 1, 'base' => 1, 'col' => 1, 'link' => 1, 'param' => 1, 'basefont' => 1, 'frame' => 1,
 		'isindex' => 1, 'wbr' => 1, 'command' => 1, 'track' => 1,
-	];
+	);
 
 
 	/**
@@ -55,7 +55,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 	public static function el($name = NULL, $attrs = NULL)
 	{
 		$el = new static;
-		$parts = explode(' ', (string) $name, 2);
+		$parts = explode(' ', $name, 2);
 		$el->setName($parts[0]);
 
 		if (is_array($attrs)) {
@@ -175,7 +175,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 	 * Overloaded setter for element's attribute.
 	 * @param  string  HTML attribute name
 	 * @param  array   (string) HTML attribute value or pair?
-	 * @return mixed
+	 * @return self
 	 */
 	public function __call($m, $args)
 	{
@@ -203,7 +203,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 			$this->attrs[$m][$args[0]] = $args[1];
 
 		} else {
-			$this->attrs[$m] = [$this->attrs[$m], $args[0] => $args[1]];
+			$this->attrs[$m] = array($this->attrs[$m], $args[0] => $args[1]);
 		}
 
 		return $this;
@@ -219,7 +219,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 	public function href($path, $query = NULL)
 	{
 		if ($query) {
-			$query = http_build_query($query, '', '&');
+			$query = http_build_query($query, NULL, '&');
 			if ($query !== '') {
 				$path .= '?' . $query;
 			}
@@ -343,7 +343,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 				$this->children[] = $child;
 
 			} else { // insert or replace
-				array_splice($this->children, (int) $index, $replace ? 1 : 0, [$child]);
+				array_splice($this->children, (int) $index, $replace ? 1 : 0, array($child));
 			}
 
 		} else {
@@ -417,7 +417,7 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 	 */
 	public function removeChildren()
 	{
-		$this->children = [];
+		$this->children = array();
 	}
 
 
@@ -566,8 +566,8 @@ class Html extends Nette\Object implements \ArrayAccess, \Countable, \IteratorAg
 			$q = strpos($value, '"') === FALSE ? '"' : "'";
 			$s .= ' ' . $key . '=' . $q
 				. str_replace(
-					['&', $q, '<'],
-					['&amp;', $q === '"' ? '&quot;' : '&#39;', self::$xhtml ? '&lt;' : '<'],
+					array('&', $q, '<'),
+					array('&amp;', $q === '"' ? '&quot;' : '&#39;', self::$xhtml ? '&lt;' : '<'),
 					$value
 				)
 				. (strpos($value, '`') !== FALSE && strpbrk($value, ' <>"\'') === FALSE ? ' ' : '')

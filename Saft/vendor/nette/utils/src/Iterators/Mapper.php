@@ -19,10 +19,10 @@ class Mapper extends \IteratorIterator
 	private $callback;
 
 
-	public function __construct(\Traversable $iterator, callable $callback)
+	public function __construct(\Traversable $iterator, $callback)
 	{
 		parent::__construct($iterator);
-		$this->callback = $callback;
+		$this->callback = Nette\Utils\Callback::check($callback);
 	}
 
 

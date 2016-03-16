@@ -17,13 +17,13 @@ use Nette\MemberAccessException;
 class ObjectMixin
 {
 	/** @var array (name => 0 | bool | array)  used by getMethods() */
-	private static $methods = [];
+	private static $methods;
 
 	/** @var array (name => 'event' | TRUE)  used by hasProperty() */
-	private static $props = [];
+	private static $props;
 
-	/** @var array (name => [type => callback])  used by get|setExtensionMethod() */
-	private static $extMethods = [];
+	/** @var array (name => array(type => callback))  used by get|setExtensionMethod() */
+	private static $extMethods;
 
 
 	/**
@@ -114,7 +114,7 @@ class ObjectMixin
 	{
 		$hint = self::getSuggestion(array_filter(
 			get_class_methods($class),
-			function ($m) use ($class) { return (new \ReflectionMethod($class, $m))->isStatic(); }
+			function ($m) use ($class) { $rm = new \ReflectionMethod($class, $m); return $rm->isStatic(); }
 		), $method);
 		throw new MemberAccessException("Call to undefined static method $class::$method()" . ($hint ? ", did you mean $hint()?" : '.'));
 	}
@@ -138,7 +138,8 @@ class ObjectMixin
 
 		} elseif (isset($methods[$m = 'get' . $uname]) || isset($methods[$m = 'is' . $uname])) { // property getter
 			if ($methods[$m] === 0) {
-				$methods[$m] = (new \ReflectionMethod($class, $m))->returnsReference();
+				$rm = new \ReflectionMethod($class, $m);
+				$methods[$m] = $rm->returnsReference();
 			}
 			if ($methods[$m] === TRUE) {
 				return $_this->$m();
@@ -148,15 +149,15 @@ class ObjectMixin
 			}
 
 		} elseif (isset($methods[$name])) { // public method as closure getter
-			if (preg_match('#^(is|get|has)([A-Z]|$)#', $name) && !(new \ReflectionMethod($class, $name))->getNumberOfRequiredParameters()) {
+			if (preg_match('#^(is|get|has)([A-Z]|$)#', $name) && ($rm = new \ReflectionMethod($class, $name)) && !$rm->getNumberOfRequiredParameters()) {
 				$source = '';
-				foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $item) {
+				foreach (debug_backtrace(PHP_VERSION_ID >= 50306 ? DEBUG_BACKTRACE_IGNORE_ARGS : FALSE) as $item) {
 					if (isset($item['file']) && dirname($item['file']) !== __DIR__) {
 						$source = " in $item[file]:$item[line]";
 						break;
 					}
 				}
-				trigger_error("Did you forget parentheses after $name$source?", E_USER_WARNING);
+				trigger_error("Did you forgot parentheses after $name$source?", E_USER_WARNING);
 			}
 			$val = Callback::closure($_this, $name);
 			return $val;
@@ -287,15 +288,13 @@ class ObjectMixin
 		preg_match_all('~^
 			[ \t*]*  @method  [ \t]+
 			(?: [^\s(]+  [ \t]+ )?
-			(set|get|is|add)  ([A-Z]\w*)
-			(?: ([ \t]* \()  [ \t]* ([^)$\s]*)  )?
-		()~mx', (string) $rc->getDocComment(), $matches, PREG_SET_ORDER);
+			(set|get|is|add)  ([A-Z]\w*)  [ \t]*
+			(?: \(  [ \t]* ([^)$\s]+)  )?
+		()~mx', $rc->getDocComment(), $matches, PREG_SET_ORDER);
 
-		$methods = [];
-		foreach ($matches as list(, $op, $prop, $bracket, $type)) {
-			if ($bracket !== '(') {
-				trigger_error("Bracket must be immediately after @method $op$prop() in class $class.", E_USER_WARNING);
-			}
+		$methods = array();
+		foreach ($matches as $m) {
+			list(, $op, $prop, $type) = $m;
 			$name = $op . $prop;
 			$prop = strtolower($prop[0]) . substr($prop, 1) . ($op === 'add' ? 's' : '');
 			if ($rc->hasProperty($prop) && ($rp = $rc->getProperty($prop)) && !$rp->isStatic()) {
@@ -303,13 +302,13 @@ class ObjectMixin
 				if ($op === 'get' || $op === 'is') {
 					$type = NULL;
 					$op = 'get';
-				} elseif (!$type && preg_match('#@var[ \t]+(\S+)' . ($op === 'add' ? '\[\]#' : '#'), (string) $rp->getDocComment(), $m)) {
+				} elseif (!$type && preg_match('#@var[ \t]+(\S+)' . ($op === 'add' ? '\[\]#' : '#'), $rp->getDocComment(), $m)) {
 					$type = $m[1];
 				}
-				if ($rc->inNamespace() && preg_match('#^[A-Z]\w+(\[|\||\z)#', (string) $type)) {
+				if ($rc->inNamespace() && preg_match('#^[A-Z]\w+(\[|\||\z)#', $type)) {
 					$type = $rc->getNamespaceName() . '\\' . $type;
 				}
-				$methods[$name] = [$op, $rp, $type];
+				$methods[$name] = array($op, $rp, $type);
 			}
 		}
 		return $methods;
@@ -345,7 +344,7 @@ class ObjectMixin
 				return FALSE;
 			}
 			$type = substr($type, 0, -2);
-			$res = [];
+			$res = array();
 			foreach ($val as $k => $v) {
 				if (!self::checkType($v, $type)) {
 					return FALSE;
@@ -412,7 +411,7 @@ class ObjectMixin
 			return $cache;
 		}
 
-		foreach ([$class] + class_parents($class) + class_implements($class) as $cl) {
+		foreach (array($class) + class_parents($class) + class_implements($class) as $cl) {
 			if (isset($list[$cl])) {
 				return $cache = $list[$cl];
 			}
@@ -428,7 +427,7 @@ class ObjectMixin
 	 */
 	public static function getExtensionMethods($class)
 	{
-		$res = [];
+		$res = array();
 		foreach (array_keys(self::$extMethods) as $name) {
 			if ($cb = self::getExtensionMethod($class, $name)) {
 				$res[$name] = $cb;
@@ -467,7 +466,7 @@ class ObjectMixin
 		do {
 			$doc[] = $rc->getDocComment();
 		} while ($rc = $rc->getParentClass());
-		return preg_match_all($pattern, implode($doc), $m) ? $m[1] : [];
+		return preg_match_all($pattern, implode($doc), $m) ? $m[1] : array();
 	}
 
 }

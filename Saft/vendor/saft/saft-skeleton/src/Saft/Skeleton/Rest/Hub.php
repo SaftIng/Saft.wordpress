@@ -24,6 +24,11 @@ class Hub
     protected $nodeFactory;
 
     /**
+     * @var NodeUtils
+     */
+    protected $nodeUtils;
+
+    /**
      * @var array
      */
     protected $preallocateParameters;
@@ -48,17 +53,20 @@ class Hub
      * @param StatementFactory $statementFactory
      * @param NodeFactory $nodeFactory
      * @param Serializer $serializer
+     * @param NodeUtils $nodeUtils
      */
     public function __construct(
         Store $store,
         StatementFactory $statementFactory,
         NodeFactory $nodeFactory,
-        Serializer $serializer
+        Serializer $serializer,
+        NodeUtils $nodeUtils
     ) {
         $this->nodeFactory = $nodeFactory;
         $this->serializer = $serializer;
         $this->statementFactory = $statementFactory;
         $this->store = $store;
+        $this->nodeUtils = $nodeUtils;
     }
 
     /**
@@ -123,7 +131,7 @@ class Hub
 
             // s or p or o must be * or an URI
             if (isset($serverParams[$param])
-                && ('*' != $serverParams[$param] && false == NodeUtils::simpleCheckURI($serverParams[$param]))) {
+                && ('*' != $serverParams[$param] && false == $this->nodeUtils->simpleCheckURI($serverParams[$param]))) {
                 return array(
                     'message' => 'Bad Request: Parameter '. $param .' is invalid. Must be * or an URI.',
                     'code' => 400
@@ -135,7 +143,7 @@ class Hub
          * if o is set and not *, ot is mandatory (must be set to uri or literal)
          */
         // check that ot is set
-        if (true == NodeUtils::simpleCheckURI($serverParams['o'])
+        if (true == $this->nodeUtils->simpleCheckURI($serverParams['o'])
             && false === isset($serverParams['ot'])) {
             return array(
                 'message' => 'Bad Request: Parameter o is an URI, so ot must be set.',
@@ -144,7 +152,7 @@ class Hub
         }
 
         // check that ot is either uri or literal
-        if (true == NodeUtils::simpleCheckURI($serverParams['o'])
+        if (true == $this->nodeUtils->simpleCheckURI($serverParams['o'])
             && false == in_array($serverParams['ot'], array('literal', 'uri'))) {
             return array(
                 'message' => 'Bad Request: Parameter ot is neither uri nor literal.',
@@ -189,7 +197,7 @@ class Hub
          */
         if (isset($serverParams['graphUri'])) {
             // check for possible verbs
-            if (false == NodeUtils::simpleCheckURI($serverParams['graphUri'])) {
+            if (false == $this->nodeUtils->simpleCheckURI($serverParams['graphUri'])) {
                 return array(
                     'message' => 'Bad Request: Parameter graphUri must be an URI.',
                     'code' => 400

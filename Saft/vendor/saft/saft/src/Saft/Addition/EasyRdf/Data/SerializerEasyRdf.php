@@ -2,8 +2,6 @@
 
 namespace Saft\Addition\EasyRdf\Data;
 
-use EasyRdf\Format;
-use EasyRdf\Graph;
 use Saft\Data\Serializer;
 use Saft\Rdf\ArrayStatementIteratorImpl;
 use Saft\Rdf\NodeFactory;
@@ -22,6 +20,7 @@ class SerializerEasyRdf implements Serializer
      * Constructor.
      *
      * @param string $serialization Serialization format, for instance turtle or rdfa.
+     * @throws \Exception if unknown serialization format was given.
      */
     public function __construct($serialization)
     {
@@ -83,7 +82,7 @@ class SerializerEasyRdf implements Serializer
             throw new \Exception('Parameter $outputStream is neither a string nor resource.');
         }
 
-        $graph = new Graph();
+        $graph = new \EasyRdf_Graph();
 
         // go through all statements
         foreach ($statements as $statement) {
