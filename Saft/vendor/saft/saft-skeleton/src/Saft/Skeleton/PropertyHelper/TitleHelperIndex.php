@@ -9,7 +9,7 @@ class TitleHelperIndex extends AbstractIndex
 {
     /**
      * This array must be filled in an extended class with relevant properties.
-     * For instance
+     * For instance array('http://www.w3.org/2000/01/rdf-schema#label') for titlehelper.
      *
      * @var array
      */
@@ -23,4 +23,12 @@ class TitleHelperIndex extends AbstractIndex
         'http://www.w3.org/2004/02/skos/core#altLabel',
         'http://www.w3.org/2004/02/skos/core#hiddenLabel'
     );
+
+    /**
+     * Default language to fetch titles must be set in an extended class.
+     * Value could be: "en", "de", "sp" ...
+     *
+     * @var string
+     */
+    protected $defaultLanguage = "en";
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace Elastica;
 
 use Elastica\Exception\ResponseException;
@@ -24,7 +25,7 @@ class Status
      *
      * @var array Data
      */
-    protected $_data = array();
+    protected $_data = null;
 
     /**
      * Client object.
@@ -41,7 +42,6 @@ class Status
     public function __construct(Client $client)
     {
         $this->_client = $client;
-        $this->refresh();
     }
 
     /**
@@ -51,6 +51,10 @@ class Status
      */
     public function getData()
     {
+        if (is_null($this->_data)) {
+            $this->refresh();
+        }
+
         return $this->_data;
     }
 
@@ -61,7 +65,9 @@ class Status
      */
     public function getIndexNames()
     {
-        return array_keys($this->_data['indices']);
+        $data = $this->getData();
+
+        return array_keys($data['indices']);
     }
 
     /**
@@ -124,6 +130,10 @@ class Status
      */
     public function getResponse()
     {
+        if (is_null($this->_response)) {
+            $this->refresh();
+        }
+
         return $this->_response;
     }
 
@@ -134,7 +144,9 @@ class Status
      */
     public function getShards()
     {
-        return $this->_data['shards'];
+        $data = $this->getData();
+
+        return $data['shards'];
     }
 
     /**

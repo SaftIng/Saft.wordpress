@@ -36,6 +36,14 @@ abstract class AbstractIndex
     protected $preferedProperties = array();
 
     /**
+     * Default language to fetch titles must be set in an extended class.
+     * Value could be: "en", "de", "sp"
+     *
+     * @var string
+     */
+    protected $defaultLanguage = "";
+
+    /**
      * @param Cache $cache
      * @param Store $store
      * @param NamedNode $graph
@@ -118,8 +126,9 @@ abstract class AbstractIndex
 
     /**
      * @param array $uriList List of URIs you want property values for
+     * @param string $preferedLanguage Prefered language for the fetched titles
      */
-    public function fetchValues(array $uriList)
+    public function fetchValues(array $uriList, $preferedLanguage = "")
     {
         $titles = array();
 
@@ -135,13 +144,13 @@ abstract class AbstractIndex
                 foreach ($titleObjs['titles'] as $key => $titleObj) {
                     // language is set for the title
                     if (isset($titleObj['lang'])) {
-                        if ($titleObj['lang'] == $lang) {
+                        if ($titleObj['lang'] == $preferedLanguage) {
                             $title = $titleObj['title'];
                             break;
                         }
                         if ($titleDefLang == null
-                            && $lang != $this->default_lang
-                            && $titleObj['lang'] == $this->default_lang) {
+                            && $preferedLanguage != $this->defaultLanguage
+                            && $titleObj['lang'] == $this->defaultLanguage) {
                             $titleDefLang = $titleObj['title'];
                         }
                     }

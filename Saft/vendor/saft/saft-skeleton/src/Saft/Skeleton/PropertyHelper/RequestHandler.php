@@ -9,9 +9,11 @@ use Nette\Caching\Storages\MemoryStorage;
 use Nette\Caching\Storages\MongoDBStorage;
 use Nette\Caching\Storages\RedisStorage;
 use Nette\Caching\Storages\SQLiteStorage;
+use Nette\Caching\Storages\APCStorage;
 use Saft\Rdf\NamedNode;
 use Saft\Rdf\NamedNodeImpl;
 use Saft\Store\Store;
+
 
 /**
  * Encapsulates PropertyHelper related classes, ensures correct usage and helps users that way
@@ -80,8 +82,9 @@ class RequestHandler
     /**
      * @param string $action
      * @param array $payload Neccessary configuration to execute the requested action.
+     * @param string $preferedLanguage Prefered language for the fetched titles
      */
-    public function handle($action, $payload = array())
+    public function handle($action, $payload = array(), $preferedLanguage = "")
     {
         if (null == $this->index) {
             throw new \Exception('Please call setType before handle to initialize the index.');
@@ -96,7 +99,7 @@ class RequestHandler
             return $this->index->createIndex();
 
         } elseif('fetchvalues' == $action) {
-            return $this->index->fetchValues($payload);
+            return $this->index->fetchValues($payload, $preferedLanguage);
         }
 
         throw new \Exception('Unknown $action given: '. $action);
@@ -172,6 +175,11 @@ class RequestHandler
                 $this->storage = new SQLiteStorage($configuration['path']);
                 break;
 
+            // apc/apcu storage
+            case 'apc':
+                $this->storage = new APCStorage();
+                break;
+
             default:
                 throw new \Exception('Unknown name given: '. $configuration['name']);
         }
@@ -202,4 +210,5 @@ class RequestHandler
 
         throw new \Exception('Unknown type given: '. $type);
     }
+
 }
